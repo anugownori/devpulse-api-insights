@@ -210,6 +210,7 @@ export default function AgentGuardDashboard() {
             <button onClick={() => navigate("/agentguard/settings")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Settings
             </button>
+            <ThemeToggle />
             <NotificationCenter alerts={alerts} onRefresh={fetchData} />
             <span className="text-sm text-muted-foreground font-mono hidden sm:inline">{user?.email}</span>
             <button onClick={signOut} className="text-muted-foreground hover:text-foreground transition-colors">
