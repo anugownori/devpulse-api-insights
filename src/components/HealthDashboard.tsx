@@ -361,7 +361,7 @@ export default function HealthDashboard() {
             </div>
           </div>
           <p className="text-muted-foreground text-lg max-w-2xl font-light">
-            Live health probing across {APIs.length} public APIs. All data is real — probed every 30 seconds from your browser.
+            Live health probing across {APIs.length} public APIs. All data is real, probed every 30 seconds from your browser.
             {probeCount > 0 && (
               <span className="text-primary/70 font-mono text-sm ml-2">({probeCount} probes)</span>
             )}

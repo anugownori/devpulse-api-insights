@@ -16,7 +16,7 @@ export default function Footer() {
           </span>
         </div>
         <p className="text-xs text-muted-foreground">
-          Real-time API Intelligence for the Developer Community
+          Real time API Intelligence for the Developer Community
         </p>
       </div>
     </footer>

@@ -11,7 +11,7 @@ const features = [
   { icon: Code2, label: "Code Gen" },
   { icon: Search, label: "Doc Search" },
   { icon: Shield, label: "Rate Limits" },
-  { icon: Zap, label: "Real-time" },
+  { icon: Zap, label: "Real time" },
 ];
 
 const AmbientOrb = memo(({ delay, className }: { delay: number; className: string }) => (
@@ -79,7 +79,7 @@ export default function HeroSection() {
         </motion.div>
 
         {/* SEO h1 - visually hidden */}
-        <h1 className="sr-only">DevPulse - Real-time API Health Monitor</h1>
+        <h1 className="sr-only">DevPulse Real time API Health Monitor</h1>
 
         {/* 3D Title Animation: "Dev" morphs into robot, walks to "Pulse", wraps band, shows ECG */}
         <motion.div
@@ -107,8 +107,8 @@ export default function HeroSection() {
           transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-14 leading-relaxed font-light"
         >
-          Real-time API intelligence that monitors health, discovers compatibility,
-          generates integration code & provides AI-powered docs — crafted for{" "}
+          Real time API intelligence that monitors health, discovers compatibility,
+          generates integration code & provides AI powered docs — crafted for{" "}
           <span className="text-secondary font-medium">developers</span>.
         </motion.p>
 

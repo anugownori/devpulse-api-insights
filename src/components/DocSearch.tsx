@@ -128,7 +128,7 @@ export default function DocSearch() {
             </h2>
           </div>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto font-light">
-            Live documentation search across Wikipedia, Semantic Scholar, and DuckDuckGo — all real-time.
+            Live documentation search across Wikipedia, Semantic Scholar, and DuckDuckGo — all real time.
           </p>
         </motion.div>
 

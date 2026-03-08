@@ -6,7 +6,7 @@ import { APIs } from "@/data/apiData";
 const CODE_TEMPLATES: Record<string, { language: string; code: string }> = {
   "openaq+openmeteo": {
     language: "javascript",
-    code: `// 🌍 OpenAQ + Open-Meteo: Environment Dashboard
+    code: `// 🌍 OpenAQ + Open Meteo: Environment Dashboard
 async function getEnvironmentData(lat, lon) {
   const [airQuality, weather] = await Promise.all([
     fetch(\`https://api.openaq.org/v3/locations?coordinates=\${lat},\${lon}&radius=25000&limit=1\`)
