@@ -1,108 +1,174 @@
-import { useRef, useMemo, useState } from "react";
+import { useRef, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { Float, Text } from "@react-three/drei";
+import { Text } from "@react-three/drei";
 import * as THREE from "three";
 
-/* ─── Robot Piece Definitions ─── */
-interface Piece {
-  pos: [number, number, number];
-  scale: [number, number, number];
-  rot: [number, number, number];
+/* ─── Letter that morphs into robot part ─── */
+function MorphLetter({
+  letter,
+  startPos,
+  endPos,
+  startRot,
+  endRot,
+  startScale,
+  endScale,
+  color,
+  endColor,
+  phaseRef,
+  walkPhaseMultiplier,
+  timeRef,
+  isWalkingRef,
+}: {
+  letter: string;
+  startPos: [number, number, number];
+  endPos: [number, number, number];
+  startRot: [number, number, number];
+  endRot: [number, number, number];
+  startScale: number;
+  endScale: number;
   color: string;
-  emissive?: string;
-  emissiveIntensity?: number;
-  walkPhase?: number;
-  delay?: number;
-}
-
-const ROBOT_PIECES: Piece[] = [
-  { pos: [0, 0, 0], scale: [0.65, 0.75, 0.4], rot: [0,0,0], color: "#1a2332", delay: 0 },
-  { pos: [0, 0.65, 0], scale: [0.5, 0.42, 0.42], rot: [0,0,0], color: "#1a2332", delay: 0.05 },
-  { pos: [0, 0.7, 0.22], scale: [0.38, 0.1, 0.02], rot: [0,0,0], color: "#26c6a0", emissive: "#26c6a0", emissiveIntensity: 0.8, delay: 0.2 },
-  { pos: [0, 0.05, 0.21], scale: [0.45, 0.25, 0.02], rot: [0,0,0], color: "#c4a55a", delay: 0.1 },
-  { pos: [-0.5, 0.15, 0], scale: [0.45, 0.14, 0.14], rot: [0,0,-0.4], color: "#c4a55a", delay: 0.15 },
-  { pos: [0.5, 0.15, 0], scale: [0.45, 0.14, 0.14], rot: [0,0,0.4], color: "#c4a55a", delay: 0.15 },
-  { pos: [-0.16, -0.6, 0], scale: [0.17, 0.5, 0.2], rot: [0,0,0], color: "#1a2332", delay: 0.1, walkPhase: 1 },
-  { pos: [0.16, -0.6, 0], scale: [0.17, 0.5, 0.2], rot: [0,0,0], color: "#1a2332", delay: 0.1, walkPhase: -1 },
-  { pos: [0, 1.0, 0], scale: [0.03, 0.18, 0.03], rot: [0,0,0], color: "#c4a55a", delay: 0.25 },
-  { pos: [0, 1.15, 0], scale: [0.05, 0.05, 0.05], rot: [0,0,0], color: "#e85d3a", emissive: "#e85d3a", emissiveIntensity: 1.2, delay: 0.3 },
-  { pos: [-0.16, -0.88, 0.04], scale: [0.2, 0.06, 0.26], rot: [0,0,0], color: "#c4a55a", delay: 0.15 },
-  { pos: [0.16, -0.88, 0.04], scale: [0.2, 0.06, 0.26], rot: [0,0,0], color: "#c4a55a", delay: 0.15 },
-  { pos: [-0.78, 0.38, 0], scale: [0.07, 0.07, 0.07], rot: [0,0,0], color: "#26c6a0", emissive: "#26c6a0", emissiveIntensity: 0.5, delay: 0.25 },
-  { pos: [0.78, 0.38, 0], scale: [0.07, 0.07, 0.07], rot: [0,0,0], color: "#26c6a0", emissive: "#26c6a0", emissiveIntensity: 0.5, delay: 0.25 },
-];
-
-/* ─── Single Robot Piece ─── */
-function RobotPieceBox({ piece, assemblyRef, isWalkingRef, timeRef }: {
-  piece: Piece;
-  assemblyRef: React.MutableRefObject<number>;
-  isWalkingRef: React.MutableRefObject<boolean>;
+  endColor: string;
+  phaseRef: React.MutableRefObject<number>;
+  walkPhaseMultiplier?: number;
   timeRef: React.MutableRefObject<number>;
+  isWalkingRef: React.MutableRefObject<boolean>;
 }) {
-  const ref = useRef<THREE.Mesh>(null);
+  const ref = useRef<any>(null);
 
   useFrame(() => {
     if (!ref.current) return;
-    const delay = piece.delay || 0;
-    const raw = THREE.MathUtils.clamp((assemblyRef.current - delay) / Math.max(0.01, 1 - delay), 0, 1);
-    const t = raw * raw * (3 - 2 * raw);
+    const t = phaseRef.current;
+    const ease = t * t * (3 - 2 * t);
 
-    ref.current.position.set(piece.pos[0] * t, piece.pos[1] * t, piece.pos[2] * t);
-    ref.current.scale.set(
-      Math.max(0.001, piece.scale[0] * t),
-      Math.max(0.001, piece.scale[1] * t),
-      Math.max(0.001, piece.scale[2] * t)
+    // Interpolate position
+    const x = THREE.MathUtils.lerp(startPos[0], endPos[0], ease);
+    const y = THREE.MathUtils.lerp(startPos[1], endPos[1], ease);
+    const z = THREE.MathUtils.lerp(startPos[2], endPos[2], ease);
+    ref.current.position.set(x, y, z);
+
+    // Interpolate rotation
+    ref.current.rotation.set(
+      THREE.MathUtils.lerp(startRot[0], endRot[0], ease),
+      THREE.MathUtils.lerp(startRot[1], endRot[1], ease),
+      THREE.MathUtils.lerp(startRot[2], endRot[2], ease)
     );
-    ref.current.rotation.set(piece.rot[0] * t, piece.rot[1] * t, piece.rot[2] * t);
 
-    if (piece.walkPhase && isWalkingRef.current) {
-      ref.current.rotation.x = Math.sin(timeRef.current * 8) * 0.35 * piece.walkPhase;
+    // Interpolate scale
+    const s = THREE.MathUtils.lerp(startScale, endScale, ease);
+    ref.current.scale.set(s, s, s);
+
+    // Walk animation for legs (V letter)
+    if (walkPhaseMultiplier && isWalkingRef.current) {
+      ref.current.rotation.z += Math.sin(timeRef.current * 8) * 0.15 * walkPhaseMultiplier;
+    }
+
+    // Color morph
+    if (ref.current.material) {
+      const startC = new THREE.Color(color);
+      const endC = new THREE.Color(endColor);
+      ref.current.material.color.copy(startC).lerp(endC, ease);
     }
   });
 
   return (
-    <mesh ref={ref}>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial
-        color={piece.color}
-        emissive={piece.emissive || piece.color}
-        emissiveIntensity={piece.emissiveIntensity ?? 0.05}
-        metalness={0.5}
-        roughness={0.4}
-      />
-    </mesh>
+    <Text
+      ref={ref}
+      position={startPos}
+      fontSize={1.4}
+      font={undefined}
+      anchorX="center"
+      anchorY="middle"
+      material-transparent={true}
+      material-opacity={1}
+    >
+      {letter}
+    </Text>
   );
 }
 
-/* ─── ECG Heartbeat Line (full width) ─── */
+/* ─── BP Cuff Band (wide fabric-like band around P) ─── */
+function BPCuff({ wrapProgress }: { wrapProgress: React.MutableRefObject<number> }) {
+  const groupRef = useRef<THREE.Group>(null);
+  // Multiple strips to simulate a wide BP cuff
+  const strips = useMemo(() => {
+    const result: { yOffset: number; radius: number }[] = [];
+    for (let i = 0; i < 6; i++) {
+      result.push({ yOffset: (i - 2.5) * 0.08, radius: 0.65 + i * 0.01 });
+    }
+    return result;
+  }, []);
+
+  useFrame(() => {
+    if (!groupRef.current) return;
+    const t = wrapProgress.current;
+    groupRef.current.visible = t > 0.01;
+    // Scale Y to simulate wrapping
+    groupRef.current.scale.set(t, t, t);
+  });
+
+  return (
+    <group ref={groupRef} position={[0.65, 0, 0.05]}>
+      {strips.map((strip, i) => (
+        <mesh key={i} position={[0, strip.yOffset, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[strip.radius, 0.035, 8, 48]} />
+          <meshStandardMaterial
+            color="#2a5a4a"
+            emissive="#26c6a0"
+            emissiveIntensity={0.3}
+            transparent
+            opacity={0.9}
+            metalness={0.2}
+            roughness={0.7}
+          />
+        </mesh>
+      ))}
+      {/* Velcro/clasp detail */}
+      <mesh position={[0.65, 0, 0]} rotation={[0, 0, 0]}>
+        <boxGeometry args={[0.15, 0.45, 0.08]} />
+        <meshStandardMaterial color="#1a3a2e" metalness={0.4} roughness={0.5} />
+      </mesh>
+      {/* Tube coming out of cuff */}
+      <mesh position={[0, -0.35, 0.4]}>
+        <cylinderGeometry args={[0.02, 0.02, 0.6, 8]} />
+        <meshStandardMaterial color="#333" metalness={0.3} roughness={0.6} />
+      </mesh>
+    </group>
+  );
+}
+
+/* ─── ECG Heartbeat Line ─── */
 function ECGLine({ visible }: { visible: boolean }) {
-  const COUNT = 400;
+  const COUNT = 500;
   const progressRef = useRef(0);
 
   const lineObj = useMemo(() => {
     const pts: THREE.Vector3[] = [];
     for (let i = 0; i < COUNT; i++) {
-      pts.push(new THREE.Vector3(i * 0.02 - 4, 0, 0));
+      pts.push(new THREE.Vector3(i * 0.018 - 4.5, 0, 0));
     }
     const geo = new THREE.BufferGeometry().setFromPoints(pts);
-    const mat = new THREE.LineBasicMaterial({ color: "#26c6a0", transparent: true, opacity: 0.9 });
+    const mat = new THREE.LineBasicMaterial({ color: "#26c6a0", transparent: true, opacity: 0.95, linewidth: 2 });
     return new THREE.Line(geo, mat);
   }, []);
 
   useFrame((_, delta) => {
     if (!visible) return;
-    progressRef.current += delta * 2.5;
+    progressRef.current += delta * 2.2;
     const positions = lineObj.geometry.attributes.position;
     const arr = positions.array as Float32Array;
     for (let i = 0; i < COUNT; i++) {
-      const x = i * 0.02 - 4;
-      const t = progressRef.current - i * 0.02;
-      const cycle = ((t % 1.4) + 1.4) % 1.4;
+      const x = i * 0.018 - 4.5;
+      const t = progressRef.current - i * 0.015;
+      const cycle = ((t % 1.6) + 1.6) % 1.6;
       let y = 0;
-      if (cycle > 0.25 && cycle < 0.35) y = -0.1;
-      else if (cycle > 0.35 && cycle < 0.45) y = 0.45;
-      else if (cycle > 0.45 && cycle < 0.55) y = -0.18;
-      else if (cycle > 0.55 && cycle < 0.65) y = 0.08;
+      // P wave
+      if (cycle > 0.15 && cycle < 0.25) y = 0.08 * Math.sin((cycle - 0.15) / 0.1 * Math.PI);
+      // QRS complex
+      else if (cycle > 0.35 && cycle < 0.40) y = -0.12;
+      else if (cycle > 0.40 && cycle < 0.48) y = 0.5;
+      else if (cycle > 0.48 && cycle < 0.55) y = -0.2;
+      // T wave
+      else if (cycle > 0.7 && cycle < 0.85) y = 0.12 * Math.sin((cycle - 0.7) / 0.15 * Math.PI);
       arr[i * 3] = x;
       arr[i * 3 + 1] = y;
     }
@@ -110,72 +176,12 @@ function ECGLine({ visible }: { visible: boolean }) {
   });
 
   if (!visible) return null;
-
-  return <primitive object={lineObj} position={[0, 1.7, 0]} />;
+  return <primitive object={lineObj} position={[0, 1.6, 0]} />;
 }
 
-/* ─── BP Band around P ─── */
-function BPBand({ visible, position }: { visible: boolean; position: [number, number, number] }) {
-  const ref = useRef<THREE.Mesh>(null);
-  const scaleRef = useRef(0);
-
-  useFrame((_, delta) => {
-    if (!ref.current) return;
-    scaleRef.current = THREE.MathUtils.lerp(scaleRef.current, visible ? 1 : 0, delta * 3);
-    ref.current.scale.setScalar(scaleRef.current);
-    ref.current.rotation.y += delta * 0.8;
-  });
-
-  return (
-    <mesh ref={ref} position={position}>
-      <torusGeometry args={[0.5, 0.07, 16, 48]} />
-      <meshStandardMaterial
-        color="hsl(160, 45%, 48%)"
-        emissive="hsl(160, 45%, 48%)"
-        emissiveIntensity={0.5}
-        transparent
-        opacity={0.85}
-        metalness={0.3}
-        roughness={0.5}
-      />
-    </mesh>
-  );
-}
-
-/* ─── Dev Text (fades out and transforms into robot) ─── */
-function DevText({ visible }: { visible: boolean }) {
-  const ref = useRef<any>(null);
-  const opRef = useRef(1);
-
-  useFrame((_, delta) => {
-    if (!ref.current) return;
-    opRef.current = THREE.MathUtils.lerp(opRef.current, visible ? 1 : 0, delta * 4);
-    if (ref.current.material) {
-      ref.current.material.opacity = opRef.current;
-    }
-  });
-
-  if (opRef.current < 0.01 && !visible) return null;
-
-  return (
-    <Text
-      ref={ref}
-      position={[-1.5, 0, 0.1]}
-      fontSize={1.4}
-      color="#ddd8d0"
-      anchorX="center"
-      anchorY="middle"
-      material-transparent={true}
-    >
-      Dev
-    </Text>
-  );
-}
-
-/* ─── Pulse Text (P gets the band) ─── */
+/* ─── Pulse Text ─── */
 function PulseText() {
   const ref = useRef<any>(null);
-
   useFrame((state) => {
     if (!ref.current) return;
     const t = state.clock.elapsedTime;
@@ -201,61 +207,52 @@ function PulseText() {
 
 /* ─── Main Scene ─── */
 function Scene() {
-  const [devVisible, setDevVisible] = useState(true);
-  const [bandVisible, setBandVisible] = useState(false);
-  const [ecgVisible, setEcgVisible] = useState(false);
-
-  const assemblyRef = useRef(0);
-  const robotPosRef = useRef(new THREE.Vector3(-1.5, 0, 0));
+  const morphRef = useRef(0);       // 0=letters, 1=robot
+  const walkRef = useRef(0);        // walk progress (moves robot group)
+  const wrapRef = useRef(0);        // BP cuff wrap progress
+  const ecgVisRef = useRef(false);
   const isWalkingRef = useRef(false);
   const timeRef = useRef(0);
-  const phaseFlags = useRef({ devFaded: false, bandDone: false, ecgDone: false });
   const robotGroupRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
     timeRef.current = t;
 
-    // Phase 1: 1.5s - Dev text fades, robot assembles
-    if (t > 1.5 && !phaseFlags.current.devFaded) {
-      phaseFlags.current.devFaded = true;
-      setDevVisible(false);
-    }
-
-    // Assembly progress (1.5s - 3.5s)
+    // Phase 1 (1.5s–3.5s): Letters morph into robot
     if (t > 1.5 && t < 3.5) {
-      assemblyRef.current = Math.min(1, (t - 1.5) / 2);
+      morphRef.current = Math.min(1, (t - 1.5) / 2);
     } else if (t >= 3.5) {
-      assemblyRef.current = 1;
+      morphRef.current = 1;
     }
 
-    // Walking phase (3.5s - 5.5s)
+    // Phase 2 (3.5s–5.5s): Robot walks toward P
     if (t > 3.5 && t < 5.5) {
       isWalkingRef.current = true;
-      const walkT = Math.min(1, (t - 3.5) / 2);
-      const eased = walkT * walkT * (3 - 2 * walkT);
-      robotPosRef.current.x = THREE.MathUtils.lerp(-1.5, 0.5, eased);
+      walkRef.current = Math.min(1, (t - 3.5) / 2);
     } else if (t >= 5.5) {
       isWalkingRef.current = false;
-      robotPosRef.current.x = 0.5;
+      walkRef.current = 1;
     }
 
-    // Band appears at 5.5s
-    if (t > 5.5 && !phaseFlags.current.bandDone) {
-      phaseFlags.current.bandDone = true;
-      setBandVisible(true);
+    // Phase 3 (5.5s–6.5s): BP cuff wraps around P
+    if (t > 5.5 && t < 6.5) {
+      wrapRef.current = Math.min(1, (t - 5.5) / 1);
+    } else if (t >= 6.5) {
+      wrapRef.current = 1;
     }
 
-    // ECG starts at 6.2s
-    if (t > 6.2 && !phaseFlags.current.ecgDone) {
-      phaseFlags.current.ecgDone = true;
-      setEcgVisible(true);
+    // Phase 4 (6.8s): ECG appears
+    if (t > 6.8) {
+      ecgVisRef.current = true;
     }
 
-    // Robot group position + bobbing
+    // Move robot group
     if (robotGroupRef.current) {
-      const bob = assemblyRef.current > 0.5 ? Math.sin(t * 2.5) * 0.04 : 0;
-      robotGroupRef.current.position.set(robotPosRef.current.x, bob, 0);
+      const walkEase = walkRef.current * walkRef.current * (3 - 2 * walkRef.current);
+      const x = THREE.MathUtils.lerp(-1.5, 0.3, walkEase);
+      const bob = morphRef.current > 0.5 ? Math.sin(t * 2.5) * 0.04 : 0;
+      robotGroupRef.current.position.set(x, bob, 0);
     }
   });
 
@@ -267,41 +264,82 @@ function Scene() {
       <pointLight position={[1.5, 0.5, 1]} intensity={0.5} color="#c4a55a" distance={5} />
       <pointLight position={[-1, 1, 2]} intensity={0.3} color="#26c6a0" distance={5} />
 
-      {/* "Dev" text - fades out as robot forms */}
-      <DevText visible={devVisible} />
-
-      {/* "Pulse" text - stays, P gets band */}
-      <Float speed={1.5} rotationIntensity={0.03} floatIntensity={0.1}>
-        <PulseText />
-      </Float>
-
-      {/* Robot assembles from "Dev" position */}
+      {/* Robot group: D, E, V letters that morph into robot */}
       <group ref={robotGroupRef}>
-        {ROBOT_PIECES.map((piece, i) => (
-          <RobotPieceBox
-            key={i}
-            piece={piece}
-            assemblyRef={assemblyRef}
-            isWalkingRef={isWalkingRef}
-            timeRef={timeRef}
-          />
-        ))}
+        {/* D → Body (center, stays upright, grows slightly) */}
+        <MorphLetter
+          letter="D"
+          startPos={[-0.55, 0, 0]}
+          endPos={[0, -0.1, 0]}
+          startRot={[0, 0, 0]}
+          endRot={[0, 0, 0]}
+          startScale={1}
+          endScale={0.9}
+          color="#ddd8d0"
+          endColor="#1a2332"
+          phaseRef={morphRef}
+          timeRef={timeRef}
+          isWalkingRef={isWalkingRef}
+        />
+        {/* E → Head (moves up, shrinks to be the head) */}
+        <MorphLetter
+          letter="E"
+          startPos={[0, 0, 0]}
+          endPos={[0, 0.85, 0]}
+          startRot={[0, 0, 0]}
+          endRot={[0, 0, 0]}
+          startScale={1}
+          endScale={0.55}
+          color="#ddd8d0"
+          endColor="#26c6a0"
+          phaseRef={morphRef}
+          timeRef={timeRef}
+          isWalkingRef={isWalkingRef}
+        />
+        {/* V → Legs (moves down, inverts to look like legs/feet) */}
+        <MorphLetter
+          letter="V"
+          startPos={[0.5, 0, 0]}
+          endPos={[0, -0.85, 0]}
+          startRot={[0, 0, 0]}
+          endRot={[Math.PI, 0, 0]}
+          startScale={1}
+          endScale={0.7}
+          color="#ddd8d0"
+          endColor="#c4a55a"
+          phaseRef={morphRef}
+          walkPhaseMultiplier={1}
+          timeRef={timeRef}
+          isWalkingRef={isWalkingRef}
+        />
       </group>
 
-      {/* Band wraps around P */}
-      <BPBand visible={bandVisible} position={[1.1, 0.1, 0]} />
+      {/* "Pulse" text */}
+      <PulseText />
 
-      {/* Full-width ECG pulse line */}
-      <ECGLine visible={ecgVisible} />
+      {/* BP Cuff wraps around the P in Pulse */}
+      <BPCuff wrapProgress={wrapRef} />
+
+      {/* Full ECG line */}
+      <ECGLine visible={ecgVisRef.current} />
 
       {/* ECG backdrop */}
-      {ecgVisible && (
-        <mesh position={[0, 1.7, -0.05]}>
-          <planeGeometry args={[8.5, 0.9]} />
-          <meshStandardMaterial color="#0a1510" transparent opacity={0.25} />
-        </mesh>
-      )}
+      <ECGBackdrop visRef={ecgVisRef} />
     </>
+  );
+}
+
+function ECGBackdrop({ visRef }: { visRef: React.MutableRefObject<boolean> }) {
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    if (!ref.current) return;
+    ref.current.visible = visRef.current;
+  });
+  return (
+    <mesh ref={ref} position={[0, 1.6, -0.05]} visible={false}>
+      <planeGeometry args={[9.5, 0.9]} />
+      <meshStandardMaterial color="#0a1510" transparent opacity={0.25} />
+    </mesh>
   );
 }
 
