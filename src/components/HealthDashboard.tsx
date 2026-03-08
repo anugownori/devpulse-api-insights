@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp, Loader2, Eye, ChevronDown } from "lucide-react";
-import { probeAllApis, APIs, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
+import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp, Loader2, Eye, ChevronDown, Settings2 } from "lucide-react";
+import { probeAllApis, APIs, type APIInfo, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
 import ApiKeyManager, { type UserApiKey } from "./ApiKeyManager";
+import ApiRegistryManager, { type CustomAPI } from "./ApiRegistryManager";
 import ApiTrendChart, { type TrendPoint } from "./ApiTrendChart";
 import { useAnimatedCounter } from "@/hooks/useAnimatedCounter";
 import { useHealthStore } from "@/hooks/useHealthStore";
