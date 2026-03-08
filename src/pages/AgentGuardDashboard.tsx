@@ -355,6 +355,12 @@ export default function AgentGuardDashboard() {
             </motion.div>
           )}
 
+          {activeTab === "forecast" && (
+            <motion.div key="forecast" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <CostForecast userId={user!.id} />
+            </motion.div>
+          )}
+
           {activeTab === "providers" && (
             <motion.div key="providers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ProviderComparison userId={user!.id} />
