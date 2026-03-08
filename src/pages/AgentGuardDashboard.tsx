@@ -20,6 +20,8 @@ import RealtimeMonitor from "@/components/agentguard/RealtimeMonitor";
 import AuditLog from "@/components/agentguard/AuditLog";
 import OnboardingTour from "@/components/agentguard/OnboardingTour";
 import AgentKillSwitch from "@/components/agentguard/AgentKillSwitch";
+import NotificationCenter from "@/components/agentguard/NotificationCenter";
+import DateRangeFilter from "@/components/agentguard/DateRangeFilter";
 
 type Agent = {
   id: string;
@@ -198,14 +200,10 @@ export default function AgentGuardDashboard() {
               <BookOpen className="w-4 h-4" />
               <span className="hidden sm:inline">SDK Docs</span>
             </button>
-            <div className="relative">
-              <Bell className="w-5 h-5 text-muted-foreground" />
-              {unreadAlerts > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-status-down text-[10px] text-foreground flex items-center justify-center font-mono">
-                  {unreadAlerts}
-                </span>
-              )}
-            </div>
+            <button onClick={() => navigate("/agentguard/settings")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Settings
+            </button>
+            <NotificationCenter alerts={alerts} onRefresh={fetchData} />
             <span className="text-sm text-muted-foreground font-mono hidden sm:inline">{user?.email}</span>
             <button onClick={signOut} className="text-muted-foreground hover:text-foreground transition-colors">
               <LogOut className="w-4 h-4" />
@@ -299,7 +297,7 @@ export default function AgentGuardDashboard() {
                     return (
                       <motion.div key={agent.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                         className="glass-card-hover rounded-xl p-5 border border-border cursor-pointer group"
-                        onClick={() => setSelectedAgent(agent.id === selectedAgent ? null : agent.id)}>
+                        onClick={() => navigate(`/agentguard/agent/${agent.id}`)}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className={`w-2.5 h-2.5 rounded-full ${sc.dot} ${agent.status === "active" ? "animate-pulse-soft" : ""}`} />
@@ -341,6 +339,10 @@ export default function AgentGuardDashboard() {
 
           {activeTab === "costs" && (
             <motion.div key="costs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold font-serif text-foreground">Cost Analytics</h3>
+                <DateRangeFilter onRangeChange={() => {}} />
+              </div>
               <AgentCostChart userId={user!.id} />
             </motion.div>
           )}
