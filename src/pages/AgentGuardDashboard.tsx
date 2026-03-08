@@ -391,6 +391,18 @@ export default function AgentGuardDashboard() {
             </motion.div>
           )}
 
+          {activeTab === "webhooks" && (
+            <motion.div key="webhooks" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <WebhookManager userId={user!.id} />
+            </motion.div>
+          )}
+
+          {activeTab === "team" && (
+            <motion.div key="team" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <TeamWorkspace userId={user!.id} userEmail={user!.email || ""} />
+            </motion.div>
+          )}
+
           {activeTab === "audit" && (
             <motion.div key="audit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <AuditLog userId={user!.id} />
