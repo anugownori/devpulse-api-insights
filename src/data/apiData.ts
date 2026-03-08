@@ -176,6 +176,7 @@ export async function probeAllApis(userApiKeys: Record<string, string> = {}): Pr
 
 // Compatibility data
 export const COMPATIBILITY_EDGES: CompatibilityEdge[] = [
+  // Original edges
   { source: 'openaq', target: 'openmeteo', score: 92, reason: 'Both use geolocation, complementary environmental data' },
   { source: 'openaq', target: 'who', score: 78, reason: 'Air quality impacts health indicators' },
   { source: 'openaq', target: 'worldbank', score: 65, reason: 'Environmental vs economic correlation' },
@@ -192,4 +193,35 @@ export const COMPATIBILITY_EDGES: CompatibilityEdge[] = [
   { source: 'openmeteo', target: 'restcountries', score: 64, reason: 'Weather by country/location' },
   { source: 'duckduckgo', target: 'wikipedia', score: 85, reason: 'Search + knowledge base' },
   { source: 'internetarchive', target: 'openlibrary', score: 80, reason: 'Digital archive resources' },
+
+  // New edges for PDF APIs
+  { source: 'fakestore', target: 'tmdb', score: 52, reason: 'Mock product data + entertainment catalog' },
+  { source: 'opentriviadb', target: 'wikipedia', score: 74, reason: 'Trivia answers enriched with encyclopedia data' },
+  { source: 'openmeteo_marine', target: 'openmeteo', score: 95, reason: 'Land + marine weather data synergy' },
+  { source: 'openmeteo_marine', target: 'opensky', score: 62, reason: 'Marine weather conditions for aviation routes' },
+  { source: 'opensky', target: 'openmeteo', score: 72, reason: 'Flight tracking with weather overlay' },
+  { source: 'opensky', target: 'restcountries', score: 58, reason: 'Aircraft positions mapped to country data' },
+  { source: 'reddit', target: 'gdelt', score: 70, reason: 'Social media sentiment + global news events' },
+  { source: 'reddit', target: 'duckduckgo', score: 65, reason: 'Reddit discussions + instant search answers' },
+  { source: 'alphavantage', target: 'coinpaprika', score: 88, reason: 'Traditional stocks + crypto market data' },
+  { source: 'alphavantage', target: 'worldbank', score: 72, reason: 'Stock markets + economic indicators' },
+  { source: 'tmdb', target: 'omdb', score: 92, reason: 'Two movie databases for cross-referencing' },
+  { source: 'tmdb', target: 'opentriviadb', score: 55, reason: 'Movie data + entertainment trivia' },
+  { source: 'openweather', target: 'openmeteo', score: 90, reason: 'Two weather sources for comparison' },
+  { source: 'openweather', target: 'openaq', score: 80, reason: 'Weather conditions + air quality correlation' },
+  { source: 'opencage', target: 'restcountries', score: 78, reason: 'Geocoding + country metadata' },
+  { source: 'opencage', target: 'openstreetmap', score: 88, reason: 'Geocoding + open map data' },
+  { source: 'openstreetmap', target: 'openchargemap', score: 82, reason: 'Map rendering + EV charger locations' },
+  { source: 'openstreetmap', target: 'opentripmap', score: 85, reason: 'Map data + tourism POIs' },
+  { source: 'openchargemap', target: 'openmeteo', score: 55, reason: 'Charging stations + weather at location' },
+  { source: 'europarl', target: 'worldbank', score: 60, reason: 'EU legislation + economic impact data' },
+  { source: 'europarl', target: 'gdelt', score: 68, reason: 'Parliamentary activity + global news events' },
+  { source: 'groq', target: 'huggingface', score: 90, reason: 'Both AI inference APIs, model comparison' },
+  { source: 'groq', target: 'semanticscholar', score: 65, reason: 'AI inference + research paper analysis' },
+  { source: 'huggingface', target: 'wikipedia', score: 60, reason: 'NLP models + encyclopedia text corpus' },
+  { source: 'noaa', target: 'openmeteo', score: 85, reason: 'Historical climate + live weather forecast' },
+  { source: 'noaa', target: 'usgs', score: 70, reason: 'Climate data + geological events' },
+  { source: 'dogapi', target: 'opentriviadb', score: 45, reason: 'Fun data APIs for entertainment apps' },
+  { source: 'rawg', target: 'tmdb', score: 62, reason: 'Games + movies entertainment data' },
+  { source: 'rawg', target: 'reddit', score: 68, reason: 'Game data + community discussions' },
 ];
