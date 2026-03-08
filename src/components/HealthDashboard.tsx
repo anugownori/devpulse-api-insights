@@ -522,6 +522,18 @@ export default function HealthDashboard() {
         isOpen={showKeyManager}
         onClose={() => setShowKeyManager(false)}
       />
+
+      <ApiRegistryManager
+        builtInApis={APIs}
+        customApis={customApis}
+        disabledApiIds={disabledApiIds}
+        onToggleApi={handleToggleApi}
+        onRemoveCustomApi={handleRemoveCustomApi}
+        onAddCustomApi={handleAddCustomApi}
+        onEditCustomApi={handleEditCustomApi}
+        isOpen={showRegistryManager}
+        onClose={() => setShowRegistryManager(false)}
+      />
     </section>
   );
 }
