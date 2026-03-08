@@ -52,7 +52,7 @@ export const APIs: APIInfo[] = [
   { id: 'rawg', name: 'RAWG Games', category: 'Gaming', description: 'Video game database', requiresKey: true, testUrl: 'https://api.rawg.io/api/games?key=KEY&page_size=1' },
   { id: 'opentriviadb', name: 'Open Trivia DB', category: 'Entertainment', description: 'Trivia questions by category/difficulty', requiresKey: false, testUrl: 'https://opentdb.com/api.php?amount=1' },
   { id: 'opentripmap', name: 'OpenTripMap', category: 'Tourism', description: 'Tourism places & POIs worldwide', requiresKey: true, testUrl: 'https://api.opentripmap.com/0.1/en/places/geoname?name=Paris' },
-  { id: 'openmeteo_marine', name: 'Open-Meteo Marine', category: 'Weather', description: 'Marine weather forecasts', requiresKey: false, testUrl: 'https://marine-api.open-meteo.com/v1/marine?latitude=54.5&longitude=10.1&hourly=wave_height&forecast_days=1' },
+  { id: 'openmeteo_marine', name: 'Open Meteo Marine', category: 'Weather', description: 'Marine weather forecasts', requiresKey: false, testUrl: 'https://marine-api.open-meteo.com/v1/marine?latitude=54.5&longitude=10.1&hourly=wave_height&forecast_days=1' },
   { id: 'omdb', name: 'OMDb', category: 'Entertainment', description: 'Movie & TV show database', requiresKey: true, testUrl: 'https://www.omdbapi.com/?t=inception&apikey=KEY' },
   { id: 'opensky', name: 'OpenSky Network', category: 'Aviation', description: 'Real-time aircraft tracking', requiresKey: false, testUrl: 'https://opensky-network.org/api/states/all?lamin=45.8389&lomin=5.9962&lamax=47.8229&lomax=10.5226' },
   { id: 'noaa', name: 'NOAA Climate', category: 'Environment', description: 'Historical climate & weather datasets', requiresKey: true, testUrl: 'https://www.ncei.noaa.gov/cdo-web/api/v2/datasets' },
