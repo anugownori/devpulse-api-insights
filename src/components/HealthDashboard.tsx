@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp } from "lucide-react";
-import { generateMockHealth, APIs, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
+import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp, Loader2 } from "lucide-react";
+import { probeAllApis, APIs, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
 import ApiKeyManager, { type UserApiKey } from "./ApiKeyManager";
 import ApiTrendChart, { type TrendPoint } from "./ApiTrendChart";
 
@@ -12,9 +12,9 @@ const statusConfig: Record<HealthStatus, { color: string; bg: string; label: str
   unknown: { color: "text-muted-foreground", bg: "bg-muted/10", label: "Unknown", icon: Minus },
 };
 
-function LatencyBar({ latency, max = 2000 }: { latency: number; max?: number }) {
+function LatencyBar({ latency, max = 3000 }: { latency: number; max?: number }) {
   const pct = Math.min((latency / max) * 100, 100);
-  const color = latency < 200 ? "bg-neon-green" : latency < 800 ? "bg-neon-amber" : "bg-neon-red";
+  const color = latency < 300 ? "bg-neon-green" : latency < 1000 ? "bg-neon-amber" : "bg-neon-red";
   return (
     <div className="w-full h-1.5 rounded-full bg-muted/30">
       <motion.div
@@ -27,25 +27,11 @@ function LatencyBar({ latency, max = 2000 }: { latency: number; max?: number }) 
   );
 }
 
-function generateTrendData(apiId: string): TrendPoint[] {
-  const points: TrendPoint[] = [];
-  const now = Date.now();
-  for (let i = 19; i >= 0; i--) {
-    const base = 100 + Math.random() * 300;
-    const spike = Math.random() > 0.85 ? Math.random() * 800 : 0;
-    points.push({
-      time: new Date(now - i * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      latency: Math.round(base + spike),
-      status: spike > 500 ? 503 : 200,
-    });
-  }
-  return points;
-}
-
 export default function HealthDashboard() {
   const [metrics, setMetrics] = useState<APIHealthMetrics[]>([]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isProbing, setIsProbing] = useState(false);
   const [filter, setFilter] = useState<HealthStatus | "all">("all");
+  const [probeCount, setProbeCount] = useState(0);
   const [apiKeys, setApiKeys] = useState<UserApiKey[]>(() => {
     try {
       const saved = localStorage.getItem("devpulse_api_keys");
@@ -57,69 +43,76 @@ export default function HealthDashboard() {
   const [expandedTrend, setExpandedTrend] = useState<string | null>(null);
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
   const trendDataRef = useRef<Record<string, TrendPoint[]>>({});
+  // Track uptime history per API
+  const uptimeHistoryRef = useRef<Record<string, boolean[]>>({});
 
   // Persist API keys
   useEffect(() => {
     localStorage.setItem("devpulse_api_keys", JSON.stringify(apiKeys));
   }, [apiKeys]);
 
-  // Generate initial trend data
+  // Build user key map from saved keys
+  const getUserKeyMap = useCallback((): Record<string, string> => {
+    const map: Record<string, string> = {};
+    apiKeys.forEach(k => { map[k.apiId] = k.key; });
+    return map;
+  }, [apiKeys]);
+
+  // Real probe function
+  const runProbe = useCallback(async () => {
+    setIsProbing(true);
+    try {
+      const results = await probeAllApis(getUserKeyMap());
+
+      // Update uptime history & calculate uptime
+      const updatedResults = results.map(m => {
+        const history = uptimeHistoryRef.current[m.apiId] || [];
+        history.push(m.status === 'healthy' || m.status === 'degraded');
+        // Keep last 100 checks
+        if (history.length > 100) history.shift();
+        uptimeHistoryRef.current[m.apiId] = history;
+        const uptime = (history.filter(Boolean).length / history.length) * 100;
+        return { ...m, uptime24h: uptime };
+      });
+
+      setMetrics(updatedResults);
+      setProbeCount(prev => prev + 1);
+
+      // Update trend data with real values
+      const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      const updated = { ...trendDataRef.current };
+      updatedResults.forEach(m => {
+        const existing = updated[m.apiId] || [];
+        existing.push({ time, latency: m.latencyMs, status: m.statusCode });
+        if (existing.length > 30) existing.shift();
+        updated[m.apiId] = existing;
+      });
+      trendDataRef.current = updated;
+      setTrendData({ ...updated });
+    } catch (err) {
+      console.error("Probe error:", err);
+    } finally {
+      setIsProbing(false);
+    }
+  }, [getUserKeyMap]);
+
+  // Initial probe + interval
   useEffect(() => {
-    const initial: Record<string, TrendPoint[]> = {};
-    APIs.forEach(api => {
-      initial[api.id] = generateTrendData(api.id);
-    });
-    trendDataRef.current = initial;
-    setTrendData(initial);
-  }, []);
-
-  // Update trends on each refresh
-  const updateTrends = useCallback(() => {
-    const updated = { ...trendDataRef.current };
-    APIs.forEach(api => {
-      const existing = updated[api.id] || [];
-      const newPoint: TrendPoint = {
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        latency: Math.round(100 + Math.random() * 400 + (Math.random() > 0.9 ? 800 : 0)),
-        status: Math.random() > 0.9 ? 503 : 200,
-      };
-      updated[api.id] = [...existing.slice(-19), newPoint];
-    });
-    trendDataRef.current = updated;
-    setTrendData(updated);
-  }, []);
-
-  const refresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setMetrics(generateMockHealth());
-      updateTrends();
-      setIsRefreshing(false);
-    }, 800);
-  };
-
-  useEffect(() => {
-    setMetrics(generateMockHealth());
-    const interval = setInterval(() => {
-      setMetrics(generateMockHealth());
-      updateTrends();
-    }, 15000);
+    runProbe();
+    const interval = setInterval(runProbe, 30000); // every 30s
     return () => clearInterval(interval);
-  }, [updateTrends]);
+  }, [runProbe]);
 
-  const handleAddKey = (key: UserApiKey) => {
-    setApiKeys(prev => [...prev, key]);
-  };
-
-  const handleRemoveKey = (id: string) => {
-    setApiKeys(prev => prev.filter(k => k.id !== id));
-  };
+  const handleAddKey = (key: UserApiKey) => setApiKeys(prev => [...prev, key]);
+  const handleRemoveKey = (id: string) => setApiKeys(prev => prev.filter(k => k.id !== id));
 
   const filtered = filter === "all" ? metrics : metrics.filter(m => m.status === filter);
   const healthy = metrics.filter(m => m.status === "healthy").length;
   const degraded = metrics.filter(m => m.status === "degraded").length;
   const down = metrics.filter(m => m.status === "down").length;
-  const avgLatency = metrics.length ? Math.round(metrics.reduce((s, m) => s + m.latencyMs, 0) / metrics.length) : 0;
+  const avgLatency = metrics.length
+    ? Math.round(metrics.filter(m => m.latencyMs > 0).reduce((s, m) => s + m.latencyMs, 0) / Math.max(metrics.filter(m => m.latencyMs > 0).length, 1))
+    : 0;
 
   return (
     <section id="dashboard" className="py-24 px-6">
@@ -137,6 +130,12 @@ export default function HealthDashboard() {
               <h2 className="text-3xl md:text-4xl font-bold text-foreground">
                 API Health <span className="text-neon-cyan text-glow-cyan">Monitor</span>
               </h2>
+              {isProbing && (
+                <span className="flex items-center gap-1.5 text-xs font-mono text-neon-cyan">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  PROBING LIVE
+                </span>
+              )}
             </div>
             <div className="flex gap-2">
               <button
@@ -165,7 +164,10 @@ export default function HealthDashboard() {
             </div>
           </div>
           <p className="text-muted-foreground text-lg max-w-2xl">
-            Real-time health probing across 15+ public APIs. Add your own API keys to monitor private endpoints.
+            Live health probing across {APIs.length} public APIs. All data is real — probed every 30 seconds from your browser.
+            {probeCount > 0 && (
+              <span className="text-neon-cyan font-mono text-sm ml-2">({probeCount} probes completed)</span>
+            )}
           </p>
         </motion.div>
 
@@ -205,20 +207,29 @@ export default function HealthDashboard() {
             >
               <div className="flex items-center gap-3 mb-4">
                 <TrendingUp className="w-5 h-5 text-neon-magenta" />
-                <h3 className="text-lg font-semibold text-foreground">Latency Trends</h3>
-                <span className="text-xs text-muted-foreground font-mono">Last 20 probes</span>
+                <h3 className="text-lg font-semibold text-foreground">Live Latency Trends</h3>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {probeCount > 0 ? `${Math.min(probeCount, 30)} data points` : 'Collecting...'}
+                </span>
               </div>
-              <div className="space-y-2">
-                {APIs.slice(0, 10).map(api => (
-                  <ApiTrendChart
-                    key={api.id}
-                    apiName={api.name}
-                    data={trendData[api.id] || []}
-                    isExpanded={expandedTrend === api.id}
-                    onToggle={() => setExpandedTrend(prev => prev === api.id ? null : api.id)}
-                  />
-                ))}
-              </div>
+              {probeCount === 0 ? (
+                <div className="text-center py-8 text-muted-foreground flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Running first probe...
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {APIs.map(api => (
+                    <ApiTrendChart
+                      key={api.id}
+                      apiName={api.name}
+                      data={trendData[api.id] || []}
+                      isExpanded={expandedTrend === api.id}
+                      onToggle={() => setExpandedTrend(prev => prev === api.id ? null : api.id)}
+                    />
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -241,12 +252,12 @@ export default function HealthDashboard() {
             ))}
           </div>
           <button
-            onClick={refresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-lg glass-card text-sm text-muted-foreground hover:text-foreground transition-colors"
+            onClick={runProbe}
+            disabled={isProbing}
+            className="flex items-center gap-2 px-4 py-1.5 rounded-lg glass-card text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            Refresh
+            {isProbing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {isProbing ? "Probing..." : "Probe Now"}
           </button>
         </div>
 
@@ -270,9 +281,7 @@ export default function HealthDashboard() {
                     <div className="flex items-center gap-2">
                       <span className={`w-2.5 h-2.5 rounded-full ${m.status === "healthy" ? "bg-neon-green animate-pulse-glow" : m.status === "degraded" ? "bg-neon-amber" : "bg-neon-red"}`} />
                       <h3 className="font-semibold text-foreground">{m.apiName}</h3>
-                      {hasKey && (
-                        <Key className="w-3 h-3 text-neon-cyan" />
-                      )}
+                      {hasKey && <Key className="w-3 h-3 text-neon-cyan" />}
                     </div>
                     <span className={`text-xs font-mono px-2 py-0.5 rounded ${cfg.bg} ${cfg.color}`}>
                       {cfg.label}
@@ -285,18 +294,29 @@ export default function HealthDashboard() {
                     </div>
                     <LatencyBar latency={m.latencyMs} />
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Uptime 24h</span>
-                      <span className="font-mono text-foreground">{m.uptime24h.toFixed(1)}%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Status Code</span>
-                      <span className={`font-mono ${m.statusCode === 200 ? "text-neon-green" : "text-neon-red"}`}>
-                        {m.statusCode || "—"}
+                      <span className="text-muted-foreground">Uptime</span>
+                      <span className="font-mono text-foreground">
+                        {m.uptime24h > 0 ? `${m.uptime24h.toFixed(1)}%` : '—'}
                       </span>
                     </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Status</span>
+                      <span className={`font-mono ${m.statusCode >= 200 && m.statusCode < 300 ? "text-neon-green" : m.statusCode === 0 ? "text-neon-red" : "text-neon-amber"}`}>
+                        {m.statusCode || "ERR"}
+                      </span>
+                    </div>
+                    {m.rateLimitRemaining !== null && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Rate Limit</span>
+                        <span className="font-mono text-foreground">{m.rateLimitRemaining} left</span>
+                      </div>
+                    )}
                     {m.errorMessage && (
                       <p className="text-xs text-neon-red mt-1 font-mono">{m.errorMessage}</p>
                     )}
+                    <p className="text-[10px] text-muted-foreground font-mono pt-1">
+                      {new Date(m.lastChecked).toLocaleTimeString()}
+                    </p>
                   </div>
                 </motion.div>
               );
@@ -305,7 +325,6 @@ export default function HealthDashboard() {
         </div>
       </div>
 
-      {/* API Key Manager Modal */}
       <ApiKeyManager
         apiKeys={apiKeys}
         onAddKey={handleAddKey}
