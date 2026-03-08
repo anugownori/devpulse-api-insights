@@ -190,7 +190,20 @@ export default function HealthDashboard() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  const [customApis, setCustomApis] = useState<CustomAPI[]>(() => {
+    try {
+      const saved = localStorage.getItem("devpulse_custom_apis");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [disabledApiIds, setDisabledApiIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("devpulse_disabled_apis");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
   const [showKeyManager, setShowKeyManager] = useState(false);
+  const [showRegistryManager, setShowRegistryManager] = useState(false);
   const [showTrends, setShowTrends] = useState(false);
   const [expandedTrend, setExpandedTrend] = useState<string | null>(null);
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
@@ -199,6 +212,14 @@ export default function HealthDashboard() {
   const trendDataRef = useRef<Record<string, TrendPoint[]>>({});
   const uptimeHistoryRef = useRef<Record<string, boolean[]>>({});
   const probeCountRef = useRef(0);
+
+  // Persist custom APIs and disabled list
+  useEffect(() => {
+    localStorage.setItem("devpulse_custom_apis", JSON.stringify(customApis));
+  }, [customApis]);
+  useEffect(() => {
+    localStorage.setItem("devpulse_disabled_apis", JSON.stringify([...disabledApiIds]));
+  }, [disabledApiIds]);
 
   useEffect(() => {
     localStorage.setItem("devpulse_api_keys", JSON.stringify(apiKeys));
