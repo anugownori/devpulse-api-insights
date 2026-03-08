@@ -318,6 +318,23 @@ export default function HealthDashboard() {
   const handleAddKey = (key: UserApiKey) => setApiKeys(prev => [...prev, key]);
   const handleRemoveKey = (id: string) => setApiKeys(prev => prev.filter(k => k.id !== id));
 
+  // Registry handlers
+  const handleToggleApi = useCallback((id: string) => {
+    setDisabledApiIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+  const handleAddCustomApi = useCallback((api: CustomAPI) => setCustomApis(prev => [...prev, api]), []);
+  const handleRemoveCustomApi = useCallback((id: string) => {
+    setCustomApis(prev => prev.filter(a => a.id !== id));
+    setDisabledApiIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+  }, []);
+  const handleEditCustomApi = useCallback((api: CustomAPI) => {
+    setCustomApis(prev => prev.map(a => a.id === api.id ? api : a));
+  }, []);
+
   const handleTogglePreview = useCallback((id: string) => {
     setExpandedPreview(prev => prev === id ? null : id);
   }, []);
