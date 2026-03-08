@@ -63,11 +63,14 @@ const statusColors: Record<string, { dot: string; bg: string; text: string }> = 
 const tabs = [
   { id: "overview", label: "Overview", icon: Activity },
   { id: "costs", label: "Cost Analytics", icon: BarChart3 },
+  { id: "forecast", label: "AI Forecast", icon: TrendingUp },
   { id: "providers", label: "Providers", icon: Layers },
   { id: "performance", label: "Performance", icon: Star },
   { id: "flow", label: "Agent Flow", icon: Cpu },
   { id: "realtime", label: "Live Monitor", icon: Radio },
   { id: "alerts", label: "Alerts", icon: Bell },
+  { id: "webhooks", label: "Webhooks", icon: Zap },
+  { id: "team", label: "Team", icon: Bot },
   { id: "audit", label: "Audit Log", icon: ScrollText },
   { id: "export", label: "Export", icon: Download },
 ] as const;
