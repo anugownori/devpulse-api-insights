@@ -1,6 +1,9 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Activity, Zap, GitBranch, Code2, Search, Shield } from "lucide-react";
+import { useHealthStore } from "@/hooks/useHealthStore";
+
+const HeroAnimation3D = lazy(() => import("@/components/HeroAnimation3D"));
 import { useHealthStore } from "@/hooks/useHealthStore";
 
 const features = [
