@@ -29,42 +29,125 @@ export interface CompatibilityEdge {
 }
 
 export const APIs: APIInfo[] = [
-  { id: 'openaq', name: 'OpenAQ', category: 'Environment', description: 'Real-time air quality data', requiresKey: false, testUrl: 'https://api.openaq.org/v3/locations?limit=1' },
   { id: 'usgs', name: 'USGS Earthquake', category: 'Geoscience', description: 'Earthquake monitoring', requiresKey: false, testUrl: 'https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&limit=1' },
-  { id: 'worldbank', name: 'World Bank', category: 'Economics', description: 'Global economic indicators', requiresKey: false, testUrl: 'https://api.worldbank.org/v2/country/IN?format=json' },
-  { id: 'who', name: 'WHO GHO', category: 'Health', description: 'Global health observatory', requiresKey: false, testUrl: 'https://ghoapi.azureedge.net/api/WHOSIS_000001?$top=1' },
-  { id: 'gdelt', name: 'GDELT Project', category: 'News', description: 'Global event database', requiresKey: false, testUrl: 'https://api.gdeltproject.org/api/v2/doc/doc?query=test&mode=artlist&maxrecords=1&format=json' },
   { id: 'wikipedia', name: 'Wikipedia', category: 'Knowledge', description: 'Free encyclopedia API', requiresKey: false, testUrl: 'https://en.wikipedia.org/api/rest_v1/page/summary/API' },
   { id: 'restcountries', name: 'REST Countries', category: 'Geography', description: 'Country information', requiresKey: false, testUrl: 'https://restcountries.com/v3.1/name/india' },
   { id: 'spacex', name: 'SpaceX', category: 'Space', description: 'SpaceX launch data', requiresKey: false, testUrl: 'https://api.spacexdata.com/v4/launches/latest' },
   { id: 'openmeteo', name: 'Open-Meteo', category: 'Weather', description: 'Weather forecast API', requiresKey: false, testUrl: 'https://api.open-meteo.com/v1/forecast?latitude=12.97&longitude=77.59&current=temperature_2m' },
   { id: 'openlibrary', name: 'Open Library', category: 'Knowledge', description: 'Book information', requiresKey: false, testUrl: 'https://openlibrary.org/search.json?q=python&limit=1' },
-  { id: 'semanticscholar', name: 'Semantic Scholar', category: 'Research', description: 'Academic paper search', requiresKey: false, testUrl: 'https://api.semanticscholar.org/graph/v1/paper/search?query=ml&limit=1' },
   { id: 'coinpaprika', name: 'CoinPaprika', category: 'Finance', description: 'Cryptocurrency data', requiresKey: false, testUrl: 'https://api.coinpaprika.com/v1/tickers/btc-bitcoin' },
-  { id: 'nasa', name: 'NASA APOD', category: 'Space', description: 'Astronomy picture of the day', requiresKey: true, testUrl: 'https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY' },
-  { id: 'duckduckgo', name: 'DuckDuckGo', category: 'Search', description: 'Instant answers API', requiresKey: false, testUrl: 'https://api.duckduckgo.com/?q=test&format=json' },
+  { id: 'nasa', name: 'NASA APOD', category: 'Space', description: 'Astronomy picture of the day', requiresKey: false, testUrl: 'https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY' },
   { id: 'internetarchive', name: 'Internet Archive', category: 'Knowledge', description: 'Digital library', requiresKey: false, testUrl: 'https://archive.org/metadata/nasa' },
+  { id: 'openaq', name: 'OpenAQ', category: 'Environment', description: 'Real-time air quality data', requiresKey: false, testUrl: 'https://api.openaq.org/v3/locations?limit=1&country=IN' },
+  { id: 'worldbank', name: 'World Bank', category: 'Economics', description: 'Global economic indicators', requiresKey: false, testUrl: 'https://api.worldbank.org/v2/country/IN?format=json' },
+  { id: 'who', name: 'WHO GHO', category: 'Health', description: 'Global health observatory', requiresKey: false, testUrl: 'https://ghoapi.azureedge.net/api/WHOSIS_000001?$top=1' },
+  { id: 'semanticscholar', name: 'Semantic Scholar', category: 'Research', description: 'Academic paper search', requiresKey: false, testUrl: 'https://api.semanticscholar.org/graph/v1/paper/search?query=ml&limit=1' },
+  { id: 'gdelt', name: 'GDELT Project', category: 'News', description: 'Global event database', requiresKey: false, testUrl: 'https://api.gdeltproject.org/api/v2/doc/doc?query=test&mode=artlist&maxrecords=1&format=json' },
+  { id: 'duckduckgo', name: 'DuckDuckGo', category: 'Search', description: 'Instant answers API', requiresKey: false, testUrl: 'https://api.duckduckgo.com/?q=test&format=json' },
 ];
 
 export const CATEGORIES = [...new Set(APIs.map(a => a.category))];
 
-// Simulated health data generator
-export function generateMockHealth(): APIHealthMetrics[] {
-  return APIs.map(api => {
-    const rand = Math.random();
-    const status: HealthStatus = rand > 0.85 ? 'down' : rand > 0.7 ? 'degraded' : 'healthy';
-    const latency = status === 'down' ? 0 : status === 'degraded' ? 800 + Math.random() * 2000 : 50 + Math.random() * 400;
-    
+/**
+ * Probe a single API endpoint and return real health metrics
+ */
+async function probeSingleApi(api: APIInfo, userApiKeys: Record<string, string> = {}): Promise<APIHealthMetrics> {
+  let url = api.testUrl;
+
+  // Replace key placeholder if user has provided one
+  if (api.requiresKey && userApiKeys[api.id]) {
+    url = url.replace(/api_key=[^&]+/, `api_key=${encodeURIComponent(userApiKeys[api.id])}`);
+    url = url.replace(/appid=[^&]+/, `appid=${encodeURIComponent(userApiKeys[api.id])}`);
+    url = url.replace(/key=[^&]+/, `key=${encodeURIComponent(userApiKeys[api.id])}`);
+  }
+
+  const start = performance.now();
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+    const latency = Math.round(performance.now() - start);
+
+    let status: HealthStatus;
+    if (response.ok) {
+      status = latency < 1000 ? 'healthy' : 'degraded';
+    } else if (response.status === 429) {
+      status = 'degraded';
+    } else {
+      status = 'down';
+    }
+
+    // Try to extract rate limit info from headers
+    let rateLimitRemaining: number | null = null;
+    const rlHeader = response.headers.get('X-RateLimit-Remaining')
+      || response.headers.get('x-ratelimit-remaining')
+      || response.headers.get('RateLimit-Remaining');
+    if (rlHeader) {
+      rateLimitRemaining = parseInt(rlHeader, 10);
+    }
+
     return {
       apiId: api.id,
       apiName: api.name,
       status,
-      latencyMs: Math.round(latency),
-      statusCode: status === 'down' ? 0 : status === 'degraded' ? 503 : 200,
+      latencyMs: latency,
+      statusCode: response.status,
       lastChecked: new Date().toISOString(),
-      uptime24h: status === 'down' ? 45 + Math.random() * 30 : status === 'degraded' ? 85 + Math.random() * 10 : 95 + Math.random() * 5,
-      rateLimitRemaining: Math.floor(Math.random() * 1000),
-      errorMessage: status === 'down' ? 'Connection timeout' : null,
+      uptime24h: 0, // calculated from history
+      rateLimitRemaining,
+      errorMessage: response.ok ? null : `HTTP ${response.status} ${response.statusText}`,
+    };
+  } catch (err) {
+    const latency = Math.round(performance.now() - start);
+    const message = err instanceof DOMException && err.name === 'AbortError'
+      ? 'Timeout (8s)'
+      : err instanceof TypeError
+        ? 'CORS / Network Error'
+        : String(err);
+
+    return {
+      apiId: api.id,
+      apiName: api.name,
+      status: 'down',
+      latencyMs: latency,
+      statusCode: 0,
+      lastChecked: new Date().toISOString(),
+      uptime24h: 0,
+      rateLimitRemaining: null,
+      errorMessage: message,
+    };
+  }
+}
+
+/**
+ * Probe all APIs in parallel and return real metrics
+ */
+export async function probeAllApis(userApiKeys: Record<string, string> = {}): Promise<APIHealthMetrics[]> {
+  const results = await Promise.allSettled(
+    APIs.map(api => probeSingleApi(api, userApiKeys))
+  );
+
+  return results.map((result, i) => {
+    if (result.status === 'fulfilled') {
+      return result.value;
+    }
+    return {
+      apiId: APIs[i].id,
+      apiName: APIs[i].name,
+      status: 'down' as HealthStatus,
+      latencyMs: 0,
+      statusCode: 0,
+      lastChecked: new Date().toISOString(),
+      uptime24h: 0,
+      rateLimitRemaining: null,
+      errorMessage: 'Probe failed',
     };
   });
 }
