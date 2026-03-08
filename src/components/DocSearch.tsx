@@ -10,22 +10,74 @@ interface DocResult {
   icon: typeof BookOpen;
 }
 
-const MOCK_RESULTS: Record<string, DocResult[]> = {
-  "openaq": [
-    { source: "OpenAQ Docs", title: "Getting Started with OpenAQ API v3", snippet: "The OpenAQ API provides real-time and historical air quality data from thousands of monitoring stations worldwide. Use the /locations endpoint to find stations near coordinates.", url: "#", icon: BookOpen },
-    { source: "Wikipedia", title: "Air Quality Index", snippet: "An air quality index (AQI) is used to communicate how polluted the air currently is. PM2.5 and PM10 are the primary particulate matter measurements.", url: "#", icon: Globe },
-    { source: "Semantic Scholar", title: "Urban Air Quality Monitoring Systems", snippet: "Recent advances in IoT-enabled air quality sensors have enabled real-time monitoring networks in major cities across the developing world.", url: "#", icon: FileText },
-  ],
-  "earthquake": [
-    { source: "USGS Docs", title: "USGS Earthquake API Documentation", snippet: "Query earthquakes by location, magnitude, and time range. The GeoJSON format provides coordinates, magnitude, and event properties.", url: "#", icon: BookOpen },
-    { source: "Wikipedia", title: "Seismology", snippet: "Seismology is the scientific study of earthquakes and the propagation of elastic waves through the Earth. The Richter scale measures earthquake magnitude.", url: "#", icon: Globe },
-  ],
-  "weather api": [
-    { source: "Open-Meteo Docs", title: "Free Weather API - No Key Required", snippet: "Open-Meteo offers free weather data including temperature, humidity, wind speed, and precipitation forecasts. No API key required for non-commercial use.", url: "#", icon: BookOpen },
-    { source: "Wikipedia", title: "Weather Forecasting", snippet: "Weather forecasting is the application of science and technology to predict atmospheric conditions for a given location and time.", url: "#", icon: Globe },
-    { source: "DuckDuckGo", title: "Weather API Comparison 2024", snippet: "Comparing free weather APIs: Open-Meteo, OpenWeather, WeatherAPI - features, rate limits, and data accuracy.", url: "#", icon: FileText },
-  ],
-};
+async function searchWikipedia(query: string): Promise<DocResult[]> {
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data.extract) return [];
+    return [{
+      source: "Wikipedia",
+      title: data.title || query,
+      snippet: data.extract,
+      url: data.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${query}`,
+      icon: Globe,
+    }];
+  } catch { return []; }
+}
+
+async function searchSemanticScholar(query: string): Promise<DocResult[]> {
+  try {
+    const res = await fetch(
+      `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=3&fields=title,abstract,url`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.data || [])
+      .filter((p: any) => p.title)
+      .map((p: any) => ({
+        source: "Semantic Scholar",
+        title: p.title,
+        snippet: p.abstract || "No abstract available",
+        url: p.url || `https://www.semanticscholar.org/paper/${p.paperId}`,
+        icon: FileText,
+      }));
+  } catch { return []; }
+}
+
+async function searchDuckDuckGo(query: string): Promise<DocResult[]> {
+  try {
+    const res = await fetch(
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query + " API documentation")}&format=json`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results: DocResult[] = [];
+    if (data.Abstract) {
+      results.push({
+        source: "DuckDuckGo",
+        title: data.Heading || query,
+        snippet: data.Abstract,
+        url: data.AbstractURL || "#",
+        icon: BookOpen,
+      });
+    }
+    for (const topic of (data.RelatedTopics || []).slice(0, 3)) {
+      if (topic?.Text) {
+        results.push({
+          source: "DuckDuckGo",
+          title: topic.Text.slice(0, 80),
+          snippet: topic.Text,
+          url: topic.FirstURL || "#",
+          icon: BookOpen,
+        });
+      }
+    }
+    return results;
+  } catch { return []; }
+}
 
 export default function DocSearch() {
   const [query, setQuery] = useState("");
@@ -33,17 +85,29 @@ export default function DocSearch() {
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!query.trim()) return;
     setIsSearching(true);
     setHasSearched(true);
 
-    setTimeout(() => {
-      const q = query.toLowerCase();
-      const key = Object.keys(MOCK_RESULTS).find(k => q.includes(k)) || Object.keys(MOCK_RESULTS)[0];
-      setResults(MOCK_RESULTS[key] || MOCK_RESULTS["openaq"]);
+    try {
+      const [wiki, scholar, ddg] = await Promise.allSettled([
+        searchWikipedia(query),
+        searchSemanticScholar(query),
+        searchDuckDuckGo(query),
+      ]);
+
+      const all: DocResult[] = [
+        ...(wiki.status === "fulfilled" ? wiki.value : []),
+        ...(scholar.status === "fulfilled" ? scholar.value : []),
+        ...(ddg.status === "fulfilled" ? ddg.value : []),
+      ];
+      setResults(all);
+    } catch {
+      setResults([]);
+    } finally {
       setIsSearching(false);
-    }, 1200);
+    }
   };
 
   return (
@@ -62,7 +126,7 @@ export default function DocSearch() {
             </h2>
           </div>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            AI-powered documentation search across Wikipedia, Semantic Scholar, and API docs.
+            Live documentation search across Wikipedia, Semantic Scholar, and DuckDuckGo — all real-time.
           </p>
         </motion.div>
 
@@ -80,7 +144,7 @@ export default function DocSearch() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleSearch()}
-              placeholder="Search API docs... (try: openaq, earthquake, weather api)"
+              placeholder="Search API docs... (try: air quality, earthquake, machine learning)"
               className="flex-1 px-4 py-4 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-lg"
             />
             <button
@@ -94,7 +158,7 @@ export default function DocSearch() {
 
           {/* Quick suggestions */}
           <div className="flex gap-2 mt-3 justify-center">
-            {["openaq", "earthquake", "weather api"].map(s => (
+            {["air quality", "earthquake", "machine learning", "bitcoin"].map(s => (
               <button
                 key={s}
                 onClick={() => { setQuery(s); }}
@@ -117,17 +181,20 @@ export default function DocSearch() {
               className="text-center py-12"
             >
               <Loader2 className="w-8 h-8 text-neon-amber animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Searching across multiple sources...</p>
+              <p className="text-muted-foreground">Searching live across multiple sources...</p>
             </motion.div>
           ) : (
             <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               {results.map((r, i) => (
-                <motion.div
+                <motion.a
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   key={i}
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.1 }}
-                  className="glass-card rounded-xl p-5 hover:border-neon-amber/20 border border-transparent transition-colors"
+                  className="block glass-card rounded-xl p-5 hover:border-neon-amber/20 border border-transparent transition-colors"
                 >
                   <div className="flex items-start gap-3">
                     <r.icon className="w-5 h-5 text-neon-amber mt-0.5 shrink-0" />
@@ -136,11 +203,11 @@ export default function DocSearch() {
                         <span className="text-xs font-mono text-neon-amber/70">{r.source}</span>
                       </div>
                       <h3 className="font-semibold text-foreground mb-1">{r.title}</h3>
-                      <p className="text-sm text-muted-foreground leading-relaxed">{r.snippet}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{r.snippet}</p>
                     </div>
                     <ExternalLink className="w-4 h-4 text-muted-foreground shrink-0" />
                   </div>
-                </motion.div>
+                </motion.a>
               ))}
               {hasSearched && results.length === 0 && !isSearching && (
                 <p className="text-center text-muted-foreground py-12">No results found. Try a different query.</p>
