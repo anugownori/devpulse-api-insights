@@ -42,9 +42,7 @@ function ECGLine({ visible }: { visible: boolean }) {
   if (!visible) return null;
 
   return (
-    <line ref={lineRef as any} geometry={geometry}>
-      <lineBasicMaterial color="#26c6a0" linewidth={2} transparent opacity={0.95} />
-    </line>
+    <primitive object={new THREE.Line(geometry, new THREE.LineBasicMaterial({ color: "#26c6a0", transparent: true, opacity: 0.95 }))} ref={lineRef} />
   );
 }
 
