@@ -1,7 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock } from "lucide-react";
-import { generateMockHealth, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
+import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp } from "lucide-react";
+import { generateMockHealth, APIs, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
+import ApiKeyManager, { type UserApiKey } from "./ApiKeyManager";
+import ApiTrendChart, { type TrendPoint } from "./ApiTrendChart";
 
 const statusConfig: Record<HealthStatus, { color: string; bg: string; label: string; icon: typeof Wifi }> = {
   healthy: { color: "text-neon-green", bg: "bg-neon-green/10", label: "Healthy", icon: Wifi },
@@ -25,24 +27,93 @@ function LatencyBar({ latency, max = 2000 }: { latency: number; max?: number }) 
   );
 }
 
+function generateTrendData(apiId: string): TrendPoint[] {
+  const points: TrendPoint[] = [];
+  const now = Date.now();
+  for (let i = 19; i >= 0; i--) {
+    const base = 100 + Math.random() * 300;
+    const spike = Math.random() > 0.85 ? Math.random() * 800 : 0;
+    points.push({
+      time: new Date(now - i * 60000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      latency: Math.round(base + spike),
+      status: spike > 500 ? 503 : 200,
+    });
+  }
+  return points;
+}
+
 export default function HealthDashboard() {
   const [metrics, setMetrics] = useState<APIHealthMetrics[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<HealthStatus | "all">("all");
+  const [apiKeys, setApiKeys] = useState<UserApiKey[]>(() => {
+    try {
+      const saved = localStorage.getItem("devpulse_api_keys");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [showKeyManager, setShowKeyManager] = useState(false);
+  const [showTrends, setShowTrends] = useState(false);
+  const [expandedTrend, setExpandedTrend] = useState<string | null>(null);
+  const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
+  const trendDataRef = useRef<Record<string, TrendPoint[]>>({});
+
+  // Persist API keys
+  useEffect(() => {
+    localStorage.setItem("devpulse_api_keys", JSON.stringify(apiKeys));
+  }, [apiKeys]);
+
+  // Generate initial trend data
+  useEffect(() => {
+    const initial: Record<string, TrendPoint[]> = {};
+    APIs.forEach(api => {
+      initial[api.id] = generateTrendData(api.id);
+    });
+    trendDataRef.current = initial;
+    setTrendData(initial);
+  }, []);
+
+  // Update trends on each refresh
+  const updateTrends = useCallback(() => {
+    const updated = { ...trendDataRef.current };
+    APIs.forEach(api => {
+      const existing = updated[api.id] || [];
+      const newPoint: TrendPoint = {
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        latency: Math.round(100 + Math.random() * 400 + (Math.random() > 0.9 ? 800 : 0)),
+        status: Math.random() > 0.9 ? 503 : 200,
+      };
+      updated[api.id] = [...existing.slice(-19), newPoint];
+    });
+    trendDataRef.current = updated;
+    setTrendData(updated);
+  }, []);
 
   const refresh = () => {
     setIsRefreshing(true);
     setTimeout(() => {
       setMetrics(generateMockHealth());
+      updateTrends();
       setIsRefreshing(false);
     }, 800);
   };
 
   useEffect(() => {
     setMetrics(generateMockHealth());
-    const interval = setInterval(() => setMetrics(generateMockHealth()), 15000);
+    const interval = setInterval(() => {
+      setMetrics(generateMockHealth());
+      updateTrends();
+    }, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [updateTrends]);
+
+  const handleAddKey = (key: UserApiKey) => {
+    setApiKeys(prev => [...prev, key]);
+  };
+
+  const handleRemoveKey = (id: string) => {
+    setApiKeys(prev => prev.filter(k => k.id !== id));
+  };
 
   const filtered = filter === "all" ? metrics : metrics.filter(m => m.status === filter);
   const healthy = metrics.filter(m => m.status === "healthy").length;
@@ -60,14 +131,41 @@ export default function HealthDashboard() {
           viewport={{ once: true }}
           className="mb-12"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <Activity className="w-6 h-6 text-neon-cyan" />
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              API Health <span className="text-neon-cyan text-glow-cyan">Monitor</span>
-            </h2>
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
+            <div className="flex items-center gap-3">
+              <Activity className="w-6 h-6 text-neon-cyan" />
+              <h2 className="text-3xl md:text-4xl font-bold text-foreground">
+                API Health <span className="text-neon-cyan text-glow-cyan">Monitor</span>
+              </h2>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowTrends(!showTrends)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  showTrends
+                    ? "bg-neon-magenta/20 text-neon-magenta border border-neon-magenta/30"
+                    : "glass-card text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                Trends
+              </button>
+              <button
+                onClick={() => setShowKeyManager(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg glass-card text-sm font-medium text-muted-foreground hover:text-foreground transition-all hover:border-neon-cyan/20 border border-transparent"
+              >
+                <Key className="w-4 h-4" />
+                API Keys
+                {apiKeys.length > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-neon-cyan/20 text-neon-cyan text-xs flex items-center justify-center font-mono">
+                    {apiKeys.length}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
           <p className="text-muted-foreground text-lg max-w-2xl">
-            Real-time health probing across 15+ public APIs. Latency, uptime, and rate limit tracking.
+            Real-time health probing across 15+ public APIs. Add your own API keys to monitor private endpoints.
           </p>
         </motion.div>
 
@@ -95,6 +193,35 @@ export default function HealthDashboard() {
             </motion.div>
           ))}
         </div>
+
+        {/* Trend Charts */}
+        <AnimatePresence>
+          {showTrends && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-8 overflow-hidden"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <TrendingUp className="w-5 h-5 text-neon-magenta" />
+                <h3 className="text-lg font-semibold text-foreground">Latency Trends</h3>
+                <span className="text-xs text-muted-foreground font-mono">Last 20 probes</span>
+              </div>
+              <div className="space-y-2">
+                {APIs.slice(0, 10).map(api => (
+                  <ApiTrendChart
+                    key={api.id}
+                    apiName={api.name}
+                    data={trendData[api.id] || []}
+                    isExpanded={expandedTrend === api.id}
+                    onToggle={() => setExpandedTrend(prev => prev === api.id ? null : api.id)}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Filters + refresh */}
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -128,6 +255,7 @@ export default function HealthDashboard() {
           <AnimatePresence mode="popLayout">
             {filtered.map((m, i) => {
               const cfg = statusConfig[m.status];
+              const hasKey = apiKeys.some(k => k.apiId === m.apiId);
               return (
                 <motion.div
                   key={m.apiId}
@@ -142,6 +270,9 @@ export default function HealthDashboard() {
                     <div className="flex items-center gap-2">
                       <span className={`w-2.5 h-2.5 rounded-full ${m.status === "healthy" ? "bg-neon-green animate-pulse-glow" : m.status === "degraded" ? "bg-neon-amber" : "bg-neon-red"}`} />
                       <h3 className="font-semibold text-foreground">{m.apiName}</h3>
+                      {hasKey && (
+                        <Key className="w-3 h-3 text-neon-cyan" />
+                      )}
                     </div>
                     <span className={`text-xs font-mono px-2 py-0.5 rounded ${cfg.bg} ${cfg.color}`}>
                       {cfg.label}
@@ -173,6 +304,15 @@ export default function HealthDashboard() {
           </AnimatePresence>
         </div>
       </div>
+
+      {/* API Key Manager Modal */}
+      <ApiKeyManager
+        apiKeys={apiKeys}
+        onAddKey={handleAddKey}
+        onRemoveKey={handleRemoveKey}
+        isOpen={showKeyManager}
+        onClose={() => setShowKeyManager(false)}
+      />
     </section>
   );
 }
