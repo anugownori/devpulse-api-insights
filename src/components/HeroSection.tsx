@@ -114,6 +114,20 @@ export default function HeroSection() {
           ))}
         </motion.div>
 
+        {/* 3D Robot Animation */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.8, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <Suspense fallback={
+            <div className="h-[400px] md:h-[500px] flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+            </div>
+          }>
+            <HeroAnimation3D />
+          </Suspense>
+        </motion.div>
         {/* CTA buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
