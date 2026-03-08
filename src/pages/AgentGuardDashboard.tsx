@@ -339,6 +339,10 @@ export default function AgentGuardDashboard() {
 
           {activeTab === "costs" && (
             <motion.div key="costs" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold font-serif text-foreground">Cost Analytics</h3>
+                <DateRangeFilter onRangeChange={() => {}} />
+              </div>
               <AgentCostChart userId={user!.id} />
             </motion.div>
           )}
