@@ -14,7 +14,296 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agent_api_keys: {
+        Row: {
+          agent_id: string | null
+          created_at: string
+          id: string
+          is_leaked: boolean
+          key_alias: string
+          last_four: string | null
+          leak_detected_at: string | null
+          provider: string
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          is_leaked?: boolean
+          key_alias: string
+          last_four?: string | null
+          leak_detected_at?: string | null
+          provider: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          created_at?: string
+          id?: string
+          is_leaked?: boolean
+          key_alias?: string
+          last_four?: string | null
+          leak_detected_at?: string | null
+          provider?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_api_keys_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_logs: {
+        Row: {
+          action_type: string
+          agent_id: string
+          cost: number | null
+          created_at: string
+          id: string
+          input_tokens: number | null
+          is_loop_detected: boolean | null
+          latency_ms: number | null
+          model: string | null
+          output_tokens: number | null
+          provider: string | null
+          raw_log: Json | null
+          status_code: number | null
+          step_number: number
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          agent_id: string
+          cost?: number | null
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          is_loop_detected?: boolean | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          provider?: string | null
+          raw_log?: Json | null
+          status_code?: number | null
+          step_number?: number
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          agent_id?: string
+          cost?: number | null
+          created_at?: string
+          id?: string
+          input_tokens?: number | null
+          is_loop_detected?: boolean | null
+          latency_ms?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          provider?: string | null
+          raw_log?: Json | null
+          status_code?: number | null
+          step_number?: number
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_logs_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agents: {
+        Row: {
+          created_at: string
+          description: string | null
+          framework: string | null
+          id: string
+          max_api_calls_per_min: number | null
+          max_cost_per_task: number | null
+          max_reasoning_steps: number | null
+          name: string
+          status: Database["public"]["Enums"]["agent_status"]
+          total_api_calls: number
+          total_cost: number
+          total_tasks: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          framework?: string | null
+          id?: string
+          max_api_calls_per_min?: number | null
+          max_cost_per_task?: number | null
+          max_reasoning_steps?: number | null
+          name: string
+          status?: Database["public"]["Enums"]["agent_status"]
+          total_api_calls?: number
+          total_cost?: number
+          total_tasks?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          framework?: string | null
+          id?: string
+          max_api_calls_per_min?: number | null
+          max_cost_per_task?: number | null
+          max_reasoning_steps?: number | null
+          name?: string
+          status?: Database["public"]["Enums"]["agent_status"]
+          total_api_calls?: number
+          total_cost?: number
+          total_tasks?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      alerts: {
+        Row: {
+          agent_id: string | null
+          alert_type: Database["public"]["Enums"]["alert_type"]
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          metadata: Json | null
+          severity: Database["public"]["Enums"]["alert_severity"]
+          title: string
+          user_id: string
+        }
+        Insert: {
+          agent_id?: string | null
+          alert_type: Database["public"]["Enums"]["alert_type"]
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          metadata?: Json | null
+          severity?: Database["public"]["Enums"]["alert_severity"]
+          title: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string | null
+          alert_type?: Database["public"]["Enums"]["alert_type"]
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          metadata?: Json | null
+          severity?: Database["public"]["Enums"]["alert_severity"]
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_entries: {
+        Row: {
+          agent_id: string
+          api_calls: number
+          cost: number
+          created_at: string
+          date: string
+          id: string
+          input_tokens: number | null
+          model: string | null
+          output_tokens: number | null
+          provider: string
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          api_calls?: number
+          cost?: number
+          created_at?: string
+          date?: string
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          provider: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          api_calls?: number
+          cost?: number
+          created_at?: string
+          date?: string
+          id?: string
+          input_tokens?: number | null
+          model?: string | null
+          output_tokens?: number | null
+          provider?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_entries_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          max_agents: number
+          plan: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          max_agents?: number
+          plan?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          max_agents?: number
+          plan?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +312,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      agent_status: "active" | "paused" | "stopped" | "error"
+      alert_severity: "info" | "warning" | "critical"
+      alert_type:
+        | "cost_limit"
+        | "loop_detected"
+        | "key_leak"
+        | "rate_limit"
+        | "error"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +446,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      agent_status: ["active", "paused", "stopped", "error"],
+      alert_severity: ["info", "warning", "critical"],
+      alert_type: [
+        "cost_limit",
+        "loop_detected",
+        "key_leak",
+        "rate_limit",
+        "error",
+      ],
+    },
   },
 } as const
