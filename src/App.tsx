@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import SplashScreen from "./components/SplashScreen";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -15,6 +16,7 @@ const AgentGuardSDKDocs = lazy(() => import("./pages/AgentGuardSDKDocs"));
 const AgentGuardResetPassword = lazy(() => import("./pages/AgentGuardResetPassword"));
 const AgentGuardAgentDetail = lazy(() => import("./pages/AgentGuardAgentDetail"));
 const AgentGuardSettings = lazy(() => import("./pages/AgentGuardSettings"));
+const AgentGuardLanding = lazy(() => import("./pages/AgentGuardLanding"));
 
 const queryClient = new QueryClient();
 
@@ -31,6 +33,7 @@ const App = () => {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
+        <ErrorBoundary>
         <Toaster />
         <Sonner />
         {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
@@ -39,6 +42,7 @@ const App = () => {
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/agentguard" element={<AgentGuardDashboard />} />
+              <Route path="/agentguard/landing" element={<AgentGuardLanding />} />
               <Route path="/agentguard/auth" element={<AgentGuardAuth />} />
               <Route path="/agentguard/docs" element={<AgentGuardSDKDocs />} />
               <Route path="/agentguard/reset-password" element={<AgentGuardResetPassword />} />
@@ -48,6 +52,7 @@ const App = () => {
             </Routes>
           </Suspense>
         </BrowserRouter>
+        </ErrorBoundary>
         </TooltipProvider>
       </QueryClientProvider>
     </ThemeProvider>

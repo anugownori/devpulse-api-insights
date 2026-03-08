@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield, Activity, DollarSign, AlertTriangle, Bot, Plus, LogOut,
   TrendingUp, Zap, Bell, ChevronRight, ArrowLeft,
-  Loader2, Cpu, BarChart3, Radio, Star, Layers, Download, ScrollText, BookOpen
+  Loader2, Cpu, BarChart3, Radio, Star, Layers, Download, ScrollText, BookOpen, PieChart
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,6 +26,7 @@ import WebhookManager from "@/components/agentguard/WebhookManager";
 import TeamWorkspace from "@/components/agentguard/TeamWorkspace";
 import CostForecast from "@/components/agentguard/CostForecast";
 import ThemeToggle from "@/components/agentguard/ThemeToggle";
+import UsageAnalytics from "@/components/agentguard/UsageAnalytics";
 
 type Agent = {
   id: string;
@@ -64,6 +65,7 @@ const tabs = [
   { id: "overview", label: "Overview", icon: Activity },
   { id: "costs", label: "Cost Analytics", icon: BarChart3 },
   { id: "forecast", label: "AI Forecast", icon: TrendingUp },
+  { id: "usage", label: "Usage", icon: PieChart },
   { id: "providers", label: "Providers", icon: Layers },
   { id: "performance", label: "Performance", icon: Star },
   { id: "flow", label: "Agent Flow", icon: Cpu },
@@ -85,7 +87,6 @@ export default function AgentGuardDashboard() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [showAddAgent, setShowAddAgent] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showOnboarding, setShowOnboarding] = useState(false);
 
@@ -96,20 +97,25 @@ export default function AgentGuardDashboard() {
   useEffect(() => {
     if (!user) return;
     fetchData();
-    // Show onboarding for new users
     const seen = localStorage.getItem("agentguard_onboarded");
     if (!seen) setShowOnboarding(true);
   }, [user]);
 
   const fetchData = async () => {
     setLoadingData(true);
-    const [agentsRes, alertsRes] = await Promise.all([
-      supabase.from("agents").select("*").order("created_at", { ascending: false }),
-      supabase.from("alerts").select("*").order("created_at", { ascending: false }).limit(20),
-    ]);
-    if (agentsRes.data) setAgents(agentsRes.data as Agent[]);
-    if (alertsRes.data) setAlerts(alertsRes.data as Alert[]);
-    setLoadingData(false);
+    try {
+      const [agentsRes, alertsRes] = await Promise.all([
+        supabase.from("agents").select("*").order("created_at", { ascending: false }),
+        supabase.from("alerts").select("*").order("created_at", { ascending: false }).limit(20),
+      ]);
+      if (agentsRes.data) setAgents(agentsRes.data as Agent[]);
+      if (alertsRes.data) setAlerts(alertsRes.data as Alert[]);
+      if (agentsRes.error) toast({ title: "Error loading agents", description: agentsRes.error.message, variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Network error", description: err.message, variant: "destructive" });
+    } finally {
+      setLoadingData(false);
+    }
   };
 
   const handleAddAgent = async (data: { name: string; description: string; framework: string }) => {
@@ -122,7 +128,6 @@ export default function AgentGuardDashboard() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Agent created" });
-      // Audit log
       await supabase.from("audit_log").insert({
         user_id: user.id, action: "agent_created",
         details: { name: data.name, framework: data.framework },
@@ -147,25 +152,48 @@ export default function AgentGuardDashboard() {
 
   const handleRunLoopDetection = async () => {
     if (!user) return;
-    for (const agent of agents.filter(a => a.status === "active")) {
-      await supabase.functions.invoke("loop-detection", {
-        body: { agent_id: agent.id, user_id: user.id },
-      });
+    try {
+      for (const agent of agents.filter(a => a.status === "active")) {
+        await supabase.functions.invoke("loop-detection", {
+          body: { agent_id: agent.id, user_id: user.id },
+        });
+      }
+      toast({ title: "Loop detection scan complete" });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Scan failed", description: err.message, variant: "destructive" });
     }
-    toast({ title: "Loop detection scan complete" });
-    fetchData();
   };
 
   const handleRunLeakScan = async () => {
     if (!user) return;
-    const { data } = await supabase.functions.invoke("leak-scanner", {
-      body: { user_id: user.id },
-    });
-    toast({
-      title: "Leak scan complete",
-      description: data?.leaks_found > 0 ? `Found ${data.leaks_found} potential leak(s)!` : "No leaks found.",
-    });
-    fetchData();
+    try {
+      const { data } = await supabase.functions.invoke("leak-scanner", {
+        body: { user_id: user.id },
+      });
+      toast({
+        title: "Leak scan complete",
+        description: data?.leaks_found > 0 ? `Found ${data.leaks_found} potential leak(s)!` : "No leaks found.",
+      });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Scan failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleRunRateLimiter = async () => {
+    if (!user) return;
+    try {
+      for (const agent of agents.filter(a => a.status === "active")) {
+        await supabase.functions.invoke("rate-limiter", {
+          body: { agent_id: agent.id, user_id: user.id },
+        });
+      }
+      toast({ title: "Rate limit check complete" });
+      fetchData();
+    } catch (err: any) {
+      toast({ title: "Check failed", description: err.message, variant: "destructive" });
+    }
   };
 
   const totalCost = useMemo(() => agents.reduce((s, a) => s + Number(a.total_cost), 0), [agents]);
@@ -191,7 +219,7 @@ export default function AgentGuardDashboard() {
       )}
 
       {/* Top nav */}
-      <nav className="border-b border-border px-6 py-4">
+      <nav className="border-b border-border px-4 sm:px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -202,17 +230,17 @@ export default function AgentGuardDashboard() {
               Agent<span className="text-primary">Guard</span>
             </h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <button onClick={() => navigate("/agentguard/docs")} className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
               <BookOpen className="w-4 h-4" />
               <span className="hidden sm:inline">SDK Docs</span>
             </button>
-            <button onClick={() => navigate("/agentguard/settings")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={() => navigate("/agentguard/settings")} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
               Settings
             </button>
             <ThemeToggle />
             <NotificationCenter alerts={alerts} onRefresh={fetchData} />
-            <span className="text-sm text-muted-foreground font-mono hidden sm:inline">{user?.email}</span>
+            <span className="text-sm text-muted-foreground font-mono hidden md:inline">{user?.email}</span>
             <button onClick={signOut} className="text-muted-foreground hover:text-foreground transition-colors">
               <LogOut className="w-4 h-4" />
             </button>
@@ -220,9 +248,9 @@ export default function AgentGuardDashboard() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           {[
             { label: "Total Cost", value: `$${totalCost.toFixed(2)}`, icon: DollarSign, color: "text-primary" },
             { label: "Active Agents", value: activeAgents, icon: Bot, color: "text-status-healthy" },
@@ -230,12 +258,12 @@ export default function AgentGuardDashboard() {
             { label: "Alerts", value: unreadAlerts, icon: AlertTriangle, color: "text-status-down" },
           ].map((stat) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-              className="glass-card rounded-xl p-5 border border-border">
+              className="glass-card rounded-xl p-4 sm:p-5 border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <stat.icon className={`w-4 h-4 ${stat.color}`} />
-                <span className="text-sm text-muted-foreground">{stat.label}</span>
+                <span className="text-xs sm:text-sm text-muted-foreground">{stat.label}</span>
               </div>
-              <p className={`text-3xl font-bold font-mono ${stat.color}`}>{stat.value}</p>
+              <p className={`text-2xl sm:text-3xl font-bold font-mono ${stat.color}`}>{stat.value}</p>
             </motion.div>
           ))}
         </div>
@@ -243,26 +271,30 @@ export default function AgentGuardDashboard() {
         {/* Security actions bar */}
         <div className="flex gap-2 mb-6 flex-wrap">
           <button onClick={handleRunLoopDetection}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card text-sm text-muted-foreground hover:text-foreground border border-border transition-all">
-            <Cpu className="w-4 h-4" /> Run Loop Detection
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl glass-card text-xs sm:text-sm text-muted-foreground hover:text-foreground border border-border transition-all">
+            <Cpu className="w-4 h-4" /> <span className="hidden sm:inline">Run</span> Loop Detection
           </button>
           <button onClick={handleRunLeakScan}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card text-sm text-muted-foreground hover:text-foreground border border-border transition-all">
-            <Shield className="w-4 h-4" /> Scan for Leaks
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl glass-card text-xs sm:text-sm text-muted-foreground hover:text-foreground border border-border transition-all">
+            <Shield className="w-4 h-4" /> <span className="hidden sm:inline">Scan for</span> Leaks
+          </button>
+          <button onClick={handleRunRateLimiter}
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl glass-card text-xs sm:text-sm text-muted-foreground hover:text-foreground border border-border transition-all">
+            <Zap className="w-4 h-4" /> Rate Check
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 flex-wrap">
+        {/* Tabs - scrollable on mobile */}
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap scrollbar-hide">
           {tabs.map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
                 activeTab === tab.id
                   ? "bg-primary/15 text-primary border border-primary/25"
                   : "glass-card text-muted-foreground hover:text-foreground"
               }`}>
               <tab.icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
+              {tab.label}
             </button>
           ))}
         </div>
@@ -289,7 +321,7 @@ export default function AgentGuardDashboard() {
                   ))}
                 </div>
               ) : agents.length === 0 ? (
-                <div className="glass-card rounded-2xl p-12 text-center border border-border">
+                <div className="glass-card rounded-2xl p-8 sm:p-12 text-center border border-border">
                   <Bot className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-foreground mb-2">No agents yet</h3>
                   <p className="text-muted-foreground mb-4">Add your first AI agent to start monitoring</p>
@@ -358,6 +390,12 @@ export default function AgentGuardDashboard() {
           {activeTab === "forecast" && (
             <motion.div key="forecast" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <CostForecast userId={user!.id} />
+            </motion.div>
+          )}
+
+          {activeTab === "usage" && (
+            <motion.div key="usage" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <UsageAnalytics userId={user!.id} />
             </motion.div>
           )}
 
