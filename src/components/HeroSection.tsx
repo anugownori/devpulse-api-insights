@@ -78,16 +78,27 @@ export default function HeroSection() {
           </span>
         </motion.div>
 
-        {/* Title */}
-        <motion.h1
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
+        {/* SEO h1 - visually hidden */}
+        <h1 className="sr-only">DevPulse - Real-time API Health Monitor</h1>
+
+        {/* 3D Title Animation: "Dev" morphs into robot, walks to "Pulse", wraps band, shows ECG */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 1, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          className="text-6xl md:text-8xl lg:text-9xl font-bold tracking-tight mb-8 font-serif"
+          className="mb-8"
         >
-          <span className="text-foreground">Dev</span>
-          <span className="text-primary text-glow-primary">Pulse</span>
-        </motion.h1>
+          <Suspense fallback={
+            <div className="h-[300px] md:h-[380px] flex items-center justify-center">
+              <span className="text-6xl md:text-8xl lg:text-9xl font-bold tracking-tight font-serif">
+                <span className="text-foreground">Dev</span>
+                <span className="text-primary text-glow-primary">Pulse</span>
+              </span>
+            </div>
+          }>
+            <HeroAnimation3D />
+          </Suspense>
+        </motion.div>
 
         {/* Subtitle */}
         <motion.p
@@ -113,20 +124,6 @@ export default function HeroSection() {
           ))}
         </motion.div>
 
-        {/* 3D Robot Animation */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.8, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <Suspense fallback={
-            <div className="h-[400px] md:h-[500px] flex items-center justify-center">
-              <div className="w-6 h-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-            </div>
-          }>
-            <HeroAnimation3D />
-          </Suspense>
-        </motion.div>
         {/* CTA buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
