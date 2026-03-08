@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Activity, Zap, GitBranch, Code2, Search, Shield } from "lucide-react";
+import { useHealthStore } from "@/hooks/useHealthStore";
 
 const features = [
   { icon: Activity, label: "Health Monitor", color: "text-neon-cyan" },
@@ -22,27 +23,32 @@ const PulseOrb = ({ delay, className }: { delay: number; className: string }) =>
 );
 
 export default function HeroSection() {
+  const { metrics, isProbing } = useHealthStore();
+  const healthy = metrics.filter(m => m.status === "healthy").length;
+  const total = metrics.length;
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden grid-bg">
-      {/* Animated orbs */}
       <PulseOrb delay={0} className="w-96 h-96 bg-neon-cyan -top-20 -left-20" />
       <PulseOrb delay={1.5} className="w-80 h-80 bg-neon-magenta top-1/3 right-0" />
       <PulseOrb delay={3} className="w-72 h-72 bg-neon-green bottom-10 left-1/3" />
 
-      {/* Scan line effect */}
       <div className="absolute inset-0 scanline opacity-30" />
 
       <div className="relative z-10 text-center px-6 max-w-5xl mx-auto">
-        {/* Badge */}
+        {/* Badge - LIVE data */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="inline-flex items-center gap-2 glass-card px-4 py-2 rounded-full mb-8"
         >
-          <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse-glow" />
+          <span className={`w-2 h-2 rounded-full ${isProbing ? "bg-neon-amber animate-pulse" : "bg-neon-green animate-pulse-glow"}`} />
           <span className="text-sm text-muted-foreground font-mono">
-            MONITORING 15+ APIs IN REAL-TIME
+            {total > 0
+              ? <>{isProbing ? "PROBING" : "MONITORING"} <span className="text-neon-green">{healthy}</span>/<span className="text-foreground">{total}</span> APIs HEALTHY IN REAL-TIME</>
+              : "INITIALIZING API PROBES..."
+            }
           </span>
         </motion.div>
 
