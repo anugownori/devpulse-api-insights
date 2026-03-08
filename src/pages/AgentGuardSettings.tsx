@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, Shield, User, Save, Loader2, Crown, Zap, Bot } from "lucide-react";
+import { ArrowLeft, Shield, User, Save, Loader2, Crown, Zap, Bot, CreditCard, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 
 type Profile = {
@@ -16,13 +17,14 @@ type Profile = {
 };
 
 const plans = [
-  { id: "free", name: "Free", price: "$0", agents: 3, features: ["3 agents", "7-day log retention", "Basic alerts", "CSV export"] },
-  { id: "pro", name: "Pro", price: "$12/mo", agents: 25, features: ["25 agents", "90-day log retention", "Priority alerts", "API access", "Webhook integrations"] },
-  { id: "team", name: "Team", price: "$39/mo", agents: 100, features: ["100 agents", "Unlimited retention", "Team workspaces", "SSO", "Priority support", "Custom webhooks"] },
+  { id: "free" as const, name: "Free", price: "$0", period: "/forever", agents: 3, features: ["3 agents", "7-day log retention", "Basic alerts", "CSV export"] },
+  { id: "pro" as const, name: "Pro", price: "$12", period: "/mo", agents: 25, features: ["25 agents", "90-day log retention", "Priority alerts", "API access", "Webhook integrations", "AI cost forecasting"] },
+  { id: "team" as const, name: "Team", price: "$39", period: "/mo", agents: 100, features: ["100 agents", "Unlimited retention", "Team workspaces", "SSO", "Priority support", "Custom webhooks"] },
 ];
 
 export default function AgentGuardSettings() {
   const { user, loading: authLoading } = useAuth();
+  const { tier, subscribed, subscriptionEnd, loading: subLoading, checkout, manageSubscription, refresh } = useSubscription();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -30,6 +32,7 @@ export default function AgentGuardSettings() {
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [checkingOut, setCheckingOut] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/agentguard/auth");
@@ -39,6 +42,16 @@ export default function AgentGuardSettings() {
     if (!user) return;
     fetchProfile();
   }, [user]);
+
+  // Check for checkout success/cancel in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "success") {
+      toast({ title: "Subscription activated!", description: "Your plan has been upgraded." });
+      refresh();
+      window.history.replaceState({}, "", "/agentguard/settings");
+    }
+  }, []);
 
   const fetchProfile = async () => {
     const { data } = await supabase.from("profiles").select("*").eq("user_id", user!.id).single();
@@ -60,6 +73,25 @@ export default function AgentGuardSettings() {
       fetchProfile();
     }
     setSaving(false);
+  };
+
+  const handleCheckout = async (planId: "pro" | "team") => {
+    setCheckingOut(planId);
+    try {
+      await checkout(planId);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setCheckingOut(null);
+    }
+  };
+
+  const handleManage = async () => {
+    try {
+      await manageSubscription();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
   };
 
   if (authLoading || loading) {
@@ -107,15 +139,34 @@ export default function AgentGuardSettings() {
           </div>
         </motion.div>
 
-        {/* Plans */}
+        {/* Billing */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <div className="flex items-center gap-3 mb-6">
-            <Crown className="w-5 h-5 text-primary" />
-            <h2 className="text-lg font-semibold font-serif text-foreground">Subscription Plan</h2>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <Crown className="w-5 h-5 text-primary" />
+              <h2 className="text-lg font-semibold font-serif text-foreground">Subscription Plan</h2>
+            </div>
+            {subscribed && (
+              <button onClick={handleManage}
+                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <CreditCard className="w-4 h-4" />
+                Manage Billing <ExternalLink className="w-3 h-3" />
+              </button>
+            )}
           </div>
+
+          {subscribed && subscriptionEnd && (
+            <div className="glass-card rounded-xl p-4 border border-primary/30 mb-4">
+              <p className="text-sm text-foreground">
+                Current plan: <span className="font-bold text-primary capitalize">{tier}</span>
+                {" · "}Renews {new Date(subscriptionEnd).toLocaleDateString()}
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {plans.map((plan) => {
-              const isCurrent = profile?.plan === plan.id;
+              const isCurrent = tier === plan.id;
               return (
                 <div key={plan.id} className={`glass-card rounded-xl p-5 border transition-all ${
                   isCurrent ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
@@ -126,7 +177,10 @@ export default function AgentGuardSettings() {
                     </span>
                   )}
                   <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
-                  <p className="text-2xl font-bold font-mono text-primary mt-1">{plan.price}</p>
+                  <div className="mt-1">
+                    <span className="text-2xl font-bold font-mono text-primary">{plan.price}</span>
+                    <span className="text-xs text-muted-foreground">{plan.period}</span>
+                  </div>
                   <div className="flex items-center gap-1.5 mt-3 text-xs text-muted-foreground">
                     <Bot className="w-3 h-3" />
                     Up to {plan.agents} agents
@@ -139,9 +193,19 @@ export default function AgentGuardSettings() {
                       </li>
                     ))}
                   </ul>
-                  {!isCurrent && (
-                    <button className="mt-4 w-full py-2 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all">
-                      {plan.id === "free" ? "Downgrade" : "Upgrade"}
+                  {!isCurrent && plan.id !== "free" && (
+                    <button
+                      onClick={() => handleCheckout(plan.id as "pro" | "team")}
+                      disabled={checkingOut !== null}
+                      className="mt-4 w-full py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {checkingOut === plan.id ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      {tier === "free" ? "Upgrade" : "Switch Plan"}
+                    </button>
+                  )}
+                  {!isCurrent && plan.id === "free" && subscribed && (
+                    <button onClick={handleManage}
+                      className="mt-4 w-full py-2 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/30 transition-all">
+                      Downgrade
                     </button>
                   )}
                 </div>
@@ -156,11 +220,11 @@ export default function AgentGuardSettings() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
             <div>
               <p className="text-xs text-muted-foreground">Plan</p>
-              <p className="font-medium text-foreground capitalize">{profile?.plan || "free"}</p>
+              <p className="font-medium text-foreground capitalize">{tier}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Max Agents</p>
-              <p className="font-mono text-foreground">{profile?.max_agents || 3}</p>
+              <p className="font-mono text-foreground">{tier === "team" ? 100 : tier === "pro" ? 25 : 3}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">User ID</p>
@@ -168,7 +232,7 @@ export default function AgentGuardSettings() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Member Since</p>
-              <p className="font-mono text-foreground text-xs">{profile ? new Date(profile.id).toLocaleDateString() : "—"}</p>
+              <p className="font-mono text-foreground text-xs">{user?.created_at ? new Date(user.created_at).toLocaleDateString() : "—"}</p>
             </div>
           </div>
         </motion.div>

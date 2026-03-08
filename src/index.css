@@ -273,6 +273,15 @@
     mix-blend-mode: overlay;
   }
 
+  /* Hide scrollbar */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Divider with gradient */
   .divider-gradient {
     height: 1px;
