@@ -4,7 +4,6 @@ import { Activity, Zap, GitBranch, Code2, Search, Shield } from "lucide-react";
 import { useHealthStore } from "@/hooks/useHealthStore";
 
 const HeroAnimation3D = lazy(() => import("@/components/HeroAnimation3D"));
-import { useHealthStore } from "@/hooks/useHealthStore";
 
 const features = [
   { icon: Activity, label: "Health Monitor" },
