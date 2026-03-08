@@ -28,8 +28,9 @@ const App = () => {
   const [splashDone, setSplashDone] = useState(false);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
         <Toaster />
         <Sonner />
         {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
