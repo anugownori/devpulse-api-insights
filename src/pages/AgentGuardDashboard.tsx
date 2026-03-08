@@ -22,6 +22,10 @@ import OnboardingTour from "@/components/agentguard/OnboardingTour";
 import AgentKillSwitch from "@/components/agentguard/AgentKillSwitch";
 import NotificationCenter from "@/components/agentguard/NotificationCenter";
 import DateRangeFilter from "@/components/agentguard/DateRangeFilter";
+import WebhookManager from "@/components/agentguard/WebhookManager";
+import TeamWorkspace from "@/components/agentguard/TeamWorkspace";
+import CostForecast from "@/components/agentguard/CostForecast";
+import ThemeToggle from "@/components/agentguard/ThemeToggle";
 
 type Agent = {
   id: string;
@@ -59,11 +63,14 @@ const statusColors: Record<string, { dot: string; bg: string; text: string }> = 
 const tabs = [
   { id: "overview", label: "Overview", icon: Activity },
   { id: "costs", label: "Cost Analytics", icon: BarChart3 },
+  { id: "forecast", label: "AI Forecast", icon: TrendingUp },
   { id: "providers", label: "Providers", icon: Layers },
   { id: "performance", label: "Performance", icon: Star },
   { id: "flow", label: "Agent Flow", icon: Cpu },
   { id: "realtime", label: "Live Monitor", icon: Radio },
   { id: "alerts", label: "Alerts", icon: Bell },
+  { id: "webhooks", label: "Webhooks", icon: Zap },
+  { id: "team", label: "Team", icon: Bot },
   { id: "audit", label: "Audit Log", icon: ScrollText },
   { id: "export", label: "Export", icon: Download },
 ] as const;
@@ -203,6 +210,7 @@ export default function AgentGuardDashboard() {
             <button onClick={() => navigate("/agentguard/settings")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Settings
             </button>
+            <ThemeToggle />
             <NotificationCenter alerts={alerts} onRefresh={fetchData} />
             <span className="text-sm text-muted-foreground font-mono hidden sm:inline">{user?.email}</span>
             <button onClick={signOut} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -347,6 +355,12 @@ export default function AgentGuardDashboard() {
             </motion.div>
           )}
 
+          {activeTab === "forecast" && (
+            <motion.div key="forecast" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <CostForecast userId={user!.id} />
+            </motion.div>
+          )}
+
           {activeTab === "providers" && (
             <motion.div key="providers" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <ProviderComparison userId={user!.id} />
@@ -374,6 +388,18 @@ export default function AgentGuardDashboard() {
           {activeTab === "alerts" && (
             <motion.div key="alerts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <AlertsFeed alerts={alerts} onRefresh={fetchData} />
+            </motion.div>
+          )}
+
+          {activeTab === "webhooks" && (
+            <motion.div key="webhooks" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <WebhookManager userId={user!.id} />
+            </motion.div>
+          )}
+
+          {activeTab === "team" && (
+            <motion.div key="team" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <TeamWorkspace userId={user!.id} userEmail={user!.email || ""} />
             </motion.div>
           )}
 

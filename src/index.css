@@ -79,6 +79,66 @@
     --sidebar-border: 225 10% 16%;
     --sidebar-ring: 34 80% 56%;
   }
+
+  .light {
+    --background: 40 20% 97%;
+    --foreground: 225 14% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 225 14% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 225 14% 12%;
+
+    --primary: 34 80% 46%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 195 50% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 225 10% 92%;
+    --muted-foreground: 225 10% 45%;
+
+    --accent: 160 45% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 4 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 225 10% 88%;
+    --input: 225 10% 88%;
+    --ring: 34 80% 46%;
+
+    --status-healthy: 160 45% 40%;
+    --status-degraded: 38 75% 48%;
+    --status-down: 4 70% 50%;
+    --status-info: 195 50% 40%;
+
+    --surface-glass: 0 0% 100% / 0.8;
+    --surface-glass-border: 225 14% 12% / 0.08;
+    --surface-glass-highlight: 225 14% 12% / 0.03;
+    --surface-elevated: 0 0% 99%;
+
+    --glow-primary: 0 0 20px hsl(34 80% 46% / 0.1);
+    --glow-accent: 0 0 20px hsl(160 45% 40% / 0.1);
+    --glow-secondary: 0 0 20px hsl(195 50% 40% / 0.1);
+
+    --gradient-hero: radial-gradient(ellipse 80% 60% at 50% 0%, hsl(34 80% 46% / 0.06), transparent 70%);
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 100%), hsl(225 10% 97%));
+
+    --shadow-card: 0 1px 3px hsl(225 14% 50% / 0.08), 0 4px 12px hsl(225 14% 50% / 0.04);
+    --shadow-card-hover: 0 4px 16px hsl(225 14% 50% / 0.12), 0 0 0 1px hsl(225 14% 50% / 0.06);
+    --shadow-float: 0 12px 32px hsl(225 14% 50% / 0.15);
+
+    --sidebar-background: 0 0% 99%;
+    --sidebar-foreground: 225 14% 12%;
+    --sidebar-primary: 34 80% 46%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 225 10% 94%;
+    --sidebar-accent-foreground: 225 14% 12%;
+    --sidebar-border: 225 10% 88%;
+    --sidebar-ring: 34 80% 46%;
+  }
 }
 
 @layer base {
@@ -225,18 +285,18 @@
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: hsl(225 14% 6%);
+  background: hsl(var(--background));
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(34 80% 56% / 0.25);
+  background: hsl(var(--primary) / 0.25);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(34 80% 56% / 0.4);
+  background: hsl(var(--primary) / 0.4);
 }
 
 /* Selection */
 ::selection {
-  background: hsl(34 80% 56% / 0.3);
-  color: hsl(40 20% 95%);
+  background: hsl(var(--primary) / 0.3);
+  color: hsl(var(--foreground));
 }
