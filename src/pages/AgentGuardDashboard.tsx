@@ -22,6 +22,10 @@ import OnboardingTour from "@/components/agentguard/OnboardingTour";
 import AgentKillSwitch from "@/components/agentguard/AgentKillSwitch";
 import NotificationCenter from "@/components/agentguard/NotificationCenter";
 import DateRangeFilter from "@/components/agentguard/DateRangeFilter";
+import WebhookManager from "@/components/agentguard/WebhookManager";
+import TeamWorkspace from "@/components/agentguard/TeamWorkspace";
+import CostForecast from "@/components/agentguard/CostForecast";
+import ThemeToggle from "@/components/agentguard/ThemeToggle";
 
 type Agent = {
   id: string;
