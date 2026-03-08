@@ -107,8 +107,8 @@ export default function HeroSection() {
           transition={{ duration: 0.9, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
           className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-14 leading-relaxed font-light"
         >
-          Real-time API intelligence that monitors health, discovers compatibility,
-          generates integration code & provides AI-powered docs — crafted for{" "}
+          Real time API intelligence that monitors health, discovers compatibility,
+          generates integration code & provides AI powered docs — crafted for{" "}
           <span className="text-secondary font-medium">developers</span>.
         </motion.p>
 
