@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { motion } from "framer-motion";
 import { Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
@@ -16,35 +16,33 @@ interface Props {
   onToggle: () => void;
 }
 
-export default function ApiTrendChart({ apiName, data, isExpanded, onToggle }: Props) {
-  const trend = useMemo(() => {
-    if (data.length < 2) return "stable";
-    const recent = data.slice(-5);
-    const avgRecent = recent.reduce((s, d) => s + d.latency, 0) / recent.length;
-    const older = data.slice(0, 5);
-    const avgOlder = older.reduce((s, d) => s + d.latency, 0) / older.length;
-    if (avgRecent > avgOlder * 1.2) return "up";
-    if (avgRecent < avgOlder * 0.8) return "down";
-    return "stable";
+export default memo(function ApiTrendChart({ apiName, data, isExpanded, onToggle }: Props) {
+  const { trend, avgLatency, maxLatency, minLatency } = useMemo(() => {
+    if (!data.length) return { trend: "stable" as const, avgLatency: 0, maxLatency: 0, minLatency: 0 };
+    
+    const avg = Math.round(data.reduce((s, d) => s + d.latency, 0) / data.length);
+    const max = Math.max(...data.map(d => d.latency));
+    const min = Math.min(...data.map(d => d.latency));
+    
+    let trend: "up" | "down" | "stable" = "stable";
+    if (data.length >= 2) {
+      const recent = data.slice(-5);
+      const avgRecent = recent.reduce((s, d) => s + d.latency, 0) / recent.length;
+      const older = data.slice(0, 5);
+      const avgOlder = older.reduce((s, d) => s + d.latency, 0) / older.length;
+      if (avgRecent > avgOlder * 1.2) trend = "up";
+      else if (avgRecent < avgOlder * 0.8) trend = "down";
+    }
+    
+    return { trend, avgLatency: avg, maxLatency: max, minLatency: min };
   }, [data]);
-
-  const avgLatency = useMemo(() => {
-    if (!data.length) return 0;
-    return Math.round(data.reduce((s, d) => s + d.latency, 0) / data.length);
-  }, [data]);
-
-  const maxLatency = useMemo(() => Math.max(...data.map(d => d.latency), 0), [data]);
-  const minLatency = useMemo(() => Math.min(...data.map(d => d.latency), Infinity), [data]);
 
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
   const trendColor = trend === "up" ? "text-status-down" : trend === "down" ? "text-status-healthy" : "text-secondary";
   const trendLabel = trend === "up" ? "Increasing" : trend === "down" ? "Decreasing" : "Stable";
 
   return (
-    <motion.div
-      layout
-      className="glass-card-hover gradient-border rounded-xl overflow-hidden"
-    >
+    <div className="glass-card-hover gradient-border rounded-xl overflow-hidden">
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between p-4 hover:bg-muted/10 transition-colors"
@@ -78,7 +76,7 @@ export default function ApiTrendChart({ apiName, data, isExpanded, onToggle }: P
           <div className="flex gap-4 mb-3">
             {[
               { label: "Avg", value: `${avgLatency}ms`, color: "text-secondary" },
-              { label: "Min", value: `${minLatency === Infinity ? 0 : minLatency}ms`, color: "text-status-healthy" },
+              { label: "Min", value: `${minLatency}ms`, color: "text-status-healthy" },
               { label: "Max", value: `${maxLatency}ms`, color: "text-status-down" },
               { label: "Points", value: `${data.length}`, color: "text-muted-foreground" },
             ].map(s => (
@@ -135,6 +133,6 @@ export default function ApiTrendChart({ apiName, data, isExpanded, onToggle }: P
           </div>
         </motion.div>
       )}
-    </motion.div>
+    </div>
   );
-}
+});

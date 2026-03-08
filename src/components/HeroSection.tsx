@@ -1,3 +1,4 @@
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Activity, Zap, GitBranch, Code2, Search, Shield } from "lucide-react";
 import { useHealthStore } from "@/hooks/useHealthStore";
@@ -11,7 +12,7 @@ const features = [
   { icon: Zap, label: "Real-time" },
 ];
 
-const AmbientOrb = ({ delay, className }: { delay: number; className: string }) => (
+const AmbientOrb = memo(({ delay, className }: { delay: number; className: string }) => (
   <motion.div
     className={`absolute rounded-full ${className}`}
     animate={{
@@ -19,14 +20,30 @@ const AmbientOrb = ({ delay, className }: { delay: number; className: string }) 
       opacity: [0.12, 0.25, 0.12],
     }}
     transition={{ duration: 8, delay, repeat: Infinity, ease: "easeInOut" }}
-    style={{ filter: "blur(80px)" }}
+    style={{ filter: "blur(80px)", willChange: "transform, opacity" }}
   />
-);
+));
+
+const FeaturePill = memo(({ icon: Icon, label, index }: { icon: any; label: string; index: number }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 15 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay: 0.6 + index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+    className="card-3d"
+  >
+    <div className="card-3d-inner glass-card-hover gradient-border px-4 py-2.5 rounded-xl flex items-center gap-2.5 cursor-default">
+      <Icon className="w-4 h-4 text-primary" />
+      <span className="text-sm font-medium text-foreground/90">{label}</span>
+    </div>
+  </motion.div>
+));
 
 export default function HeroSection() {
   const { metrics, isProbing } = useHealthStore();
-  const healthy = metrics.filter(m => m.status === "healthy").length;
-  const total = metrics.length;
+  const { healthy, total } = useMemo(() => ({
+    healthy: metrics.filter(m => m.status === "healthy").length,
+    total: metrics.length,
+  }), [metrics]);
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
@@ -59,7 +76,7 @@ export default function HeroSection() {
           </span>
         </motion.div>
 
-        {/* Title with serif display font */}
+        {/* Title */}
         <motion.h1
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
@@ -82,7 +99,7 @@ export default function HeroSection() {
           <span className="text-secondary font-medium">developers</span>.
         </motion.p>
 
-        {/* Feature pills with 3D hover */}
+        {/* Feature pills */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -90,22 +107,11 @@ export default function HeroSection() {
           className="flex flex-wrap justify-center gap-3 mb-16"
         >
           {features.map((f, i) => (
-            <motion.div
-              key={f.label}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 + i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-              className="card-3d"
-            >
-              <div className="card-3d-inner glass-card-hover gradient-border px-4 py-2.5 rounded-xl flex items-center gap-2.5 cursor-default">
-                <f.icon className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium text-foreground/90">{f.label}</span>
-              </div>
-            </motion.div>
+            <FeaturePill key={f.label} icon={f.icon} label={f.label} index={i} />
           ))}
         </motion.div>
 
-        {/* CTA buttons with 3D depth */}
+        {/* CTA buttons */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
