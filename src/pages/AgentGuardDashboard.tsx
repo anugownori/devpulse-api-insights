@@ -20,6 +20,8 @@ import RealtimeMonitor from "@/components/agentguard/RealtimeMonitor";
 import AuditLog from "@/components/agentguard/AuditLog";
 import OnboardingTour from "@/components/agentguard/OnboardingTour";
 import AgentKillSwitch from "@/components/agentguard/AgentKillSwitch";
+import NotificationCenter from "@/components/agentguard/NotificationCenter";
+import DateRangeFilter from "@/components/agentguard/DateRangeFilter";
 
 type Agent = {
   id: string;
