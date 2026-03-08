@@ -271,7 +271,7 @@ export default function HealthDashboard() {
                       <span className={`w-2.5 h-2.5 rounded-full ${m.status === "healthy" ? "bg-neon-green animate-pulse-glow" : m.status === "degraded" ? "bg-neon-amber" : "bg-neon-red"}`} />
                       <h3 className="font-semibold text-foreground">{m.apiName}</h3>
                       {hasKey && (
-                        <Key className="w-3 h-3 text-neon-cyan" title="Your API key is configured" />
+                        <Key className="w-3 h-3 text-neon-cyan" />
                       )}
                     </div>
                     <span className={`text-xs font-mono px-2 py-0.5 rounded ${cfg.bg} ${cfg.color}`}>
