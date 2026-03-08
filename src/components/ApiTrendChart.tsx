@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
+import { Area, AreaChart, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 export interface TrendPoint {
@@ -37,21 +37,20 @@ export default function ApiTrendChart({ apiName, data, isExpanded, onToggle }: P
   const minLatency = useMemo(() => Math.min(...data.map(d => d.latency), Infinity), [data]);
 
   const TrendIcon = trend === "up" ? TrendingUp : trend === "down" ? TrendingDown : Minus;
-  const trendColor = trend === "up" ? "text-neon-red" : trend === "down" ? "text-neon-green" : "text-neon-cyan";
+  const trendColor = trend === "up" ? "text-status-down" : trend === "down" ? "text-status-healthy" : "text-secondary";
   const trendLabel = trend === "up" ? "Increasing" : trend === "down" ? "Decreasing" : "Stable";
 
   return (
     <motion.div
       layout
-      className="glass-card gradient-border rounded-xl overflow-hidden"
+      className="glass-card-hover gradient-border rounded-xl overflow-hidden"
     >
-      {/* Header - clickable */}
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between p-4 hover:bg-muted/10 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <span className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse-glow" />
+          <span className="w-2 h-2 rounded-full bg-primary animate-pulse-soft" />
           <span className="font-semibold text-foreground text-sm">{apiName}</span>
         </div>
         <div className="flex items-center gap-4">
@@ -69,7 +68,6 @@ export default function ApiTrendChart({ apiName, data, isExpanded, onToggle }: P
         </div>
       </button>
 
-      {/* Chart - expandable */}
       {isExpanded && (
         <motion.div
           initial={{ height: 0, opacity: 0 }}
@@ -77,12 +75,11 @@ export default function ApiTrendChart({ apiName, data, isExpanded, onToggle }: P
           exit={{ height: 0, opacity: 0 }}
           className="px-4 pb-4"
         >
-          {/* Stats row */}
           <div className="flex gap-4 mb-3">
             {[
-              { label: "Avg", value: `${avgLatency}ms`, color: "text-neon-cyan" },
-              { label: "Min", value: `${minLatency === Infinity ? 0 : minLatency}ms`, color: "text-neon-green" },
-              { label: "Max", value: `${maxLatency}ms`, color: "text-neon-red" },
+              { label: "Avg", value: `${avgLatency}ms`, color: "text-secondary" },
+              { label: "Min", value: `${minLatency === Infinity ? 0 : minLatency}ms`, color: "text-status-healthy" },
+              { label: "Max", value: `${maxLatency}ms`, color: "text-status-down" },
               { label: "Points", value: `${data.length}`, color: "text-muted-foreground" },
             ].map(s => (
               <div key={s.label} className="text-center">
@@ -92,47 +89,46 @@ export default function ApiTrendChart({ apiName, data, isExpanded, onToggle }: P
             ))}
           </div>
 
-          {/* Chart */}
           <div className="h-40">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id={`gradient-${apiName}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(175, 80%, 50%)" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="hsl(175, 80%, 50%)" stopOpacity={0} />
+                    <stop offset="5%" stopColor="hsl(34, 80%, 56%)" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="hsl(34, 80%, 56%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis
                   dataKey="time"
-                  tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 10 }}
-                  axisLine={{ stroke: "hsl(220, 15%, 15%)" }}
+                  tick={{ fill: "hsl(225, 10%, 50%)", fontSize: 10 }}
+                  axisLine={{ stroke: "hsl(225, 10%, 16%)" }}
                   tickLine={false}
                 />
                 <YAxis
-                  tick={{ fill: "hsl(220, 10%, 55%)", fontSize: 10 }}
-                  axisLine={{ stroke: "hsl(220, 15%, 15%)" }}
+                  tick={{ fill: "hsl(225, 10%, 50%)", fontSize: 10 }}
+                  axisLine={{ stroke: "hsl(225, 10%, 16%)" }}
                   tickLine={false}
                   unit="ms"
                 />
                 <Tooltip
                   contentStyle={{
-                    background: "hsl(220, 20%, 7%)",
-                    border: "1px solid hsl(175, 80%, 50%, 0.2)",
-                    borderRadius: "8px",
-                    color: "hsl(180, 10%, 92%)",
+                    background: "hsl(225, 14%, 9%)",
+                    border: "1px solid hsl(34, 80%, 56%, 0.15)",
+                    borderRadius: "12px",
+                    color: "hsl(40, 20%, 95%)",
                     fontSize: 12,
-                    fontFamily: "JetBrains Mono",
+                    fontFamily: "DM Mono",
                   }}
-                  labelStyle={{ color: "hsl(220, 10%, 55%)" }}
+                  labelStyle={{ color: "hsl(225, 10%, 50%)" }}
                 />
                 <Area
                   type="monotone"
                   dataKey="latency"
-                  stroke="hsl(175, 80%, 50%)"
+                  stroke="hsl(34, 80%, 56%)"
                   strokeWidth={2}
                   fill={`url(#gradient-${apiName})`}
                   dot={false}
-                  activeDot={{ r: 4, stroke: "hsl(175, 80%, 50%)", fill: "hsl(220, 20%, 7%)" }}
+                  activeDot={{ r: 4, stroke: "hsl(34, 80%, 56%)", fill: "hsl(225, 14%, 9%)" }}
                 />
               </AreaChart>
             </ResponsiveContainer>
