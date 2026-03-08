@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 
 const AgentGuardDashboard = lazy(() => import("./pages/AgentGuardDashboard"));
 const AgentGuardAuth = lazy(() => import("./pages/AgentGuardAuth"));
+const AgentGuardSDKDocs = lazy(() => import("./pages/AgentGuardSDKDocs"));
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ const App = () => {
               <Route path="/" element={<Index />} />
               <Route path="/agentguard" element={<AgentGuardDashboard />} />
               <Route path="/agentguard/auth" element={<AgentGuardAuth />} />
+              <Route path="/agentguard/docs" element={<AgentGuardSDKDocs />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
