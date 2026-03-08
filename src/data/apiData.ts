@@ -39,7 +39,7 @@ export const APIs: APIInfo[] = [
   { id: 'coinpaprika', name: 'CoinPaprika', category: 'Finance', description: 'Cryptocurrency data', requiresKey: false, testUrl: 'https://api.coinpaprika.com/v1/tickers/btc-bitcoin' },
   { id: 'nasa', name: 'NASA APOD', category: 'Space', description: 'Astronomy picture of the day', requiresKey: false, testUrl: 'https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY' },
   { id: 'internetarchive', name: 'Internet Archive', category: 'Knowledge', description: 'Digital library', requiresKey: false, testUrl: 'https://archive.org/metadata/nasa' },
-  { id: 'openaq', name: 'OpenAQ', category: 'Environment', description: 'Real-time air quality data', requiresKey: false, testUrl: 'https://api.openaq.org/v3/locations?limit=1&country=IN' },
+  { id: 'openaq', name: 'OpenAQ', category: 'Environment', description: 'Real time air quality data', requiresKey: false, testUrl: 'https://api.openaq.org/v3/locations?limit=1&country=IN' },
   { id: 'worldbank', name: 'World Bank', category: 'Economics', description: 'Global economic indicators', requiresKey: false, testUrl: 'https://api.worldbank.org/v2/country/IN?format=json' },
   { id: 'who', name: 'WHO GHO', category: 'Health', description: 'Global health observatory', requiresKey: false, testUrl: 'https://ghoapi.azureedge.net/api/WHOSIS_000001?$top=1' },
   { id: 'semanticscholar', name: 'Semantic Scholar', category: 'Research', description: 'Academic paper search', requiresKey: false, testUrl: 'https://api.semanticscholar.org/graph/v1/paper/search?query=ml&limit=1' },
