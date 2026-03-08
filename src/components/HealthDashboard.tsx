@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp, Loader2, Eye, ChevronDown } from "lucide-react";
-import { probeAllApis, APIs, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
+import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp, Loader2, Eye, ChevronDown, Settings2 } from "lucide-react";
+import { probeAllApis, APIs, type APIInfo, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
 import ApiKeyManager, { type UserApiKey } from "./ApiKeyManager";
+import ApiRegistryManager, { type CustomAPI } from "./ApiRegistryManager";
 import ApiTrendChart, { type TrendPoint } from "./ApiTrendChart";
 import { useAnimatedCounter } from "@/hooks/useAnimatedCounter";
 import { useHealthStore } from "@/hooks/useHealthStore";
@@ -189,7 +190,20 @@ export default function HealthDashboard() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
+  const [customApis, setCustomApis] = useState<CustomAPI[]>(() => {
+    try {
+      const saved = localStorage.getItem("devpulse_custom_apis");
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [disabledApiIds, setDisabledApiIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem("devpulse_disabled_apis");
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
+  });
   const [showKeyManager, setShowKeyManager] = useState(false);
+  const [showRegistryManager, setShowRegistryManager] = useState(false);
   const [showTrends, setShowTrends] = useState(false);
   const [expandedTrend, setExpandedTrend] = useState<string | null>(null);
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
@@ -198,6 +212,14 @@ export default function HealthDashboard() {
   const trendDataRef = useRef<Record<string, TrendPoint[]>>({});
   const uptimeHistoryRef = useRef<Record<string, boolean[]>>({});
   const probeCountRef = useRef(0);
+
+  // Persist custom APIs and disabled list
+  useEffect(() => {
+    localStorage.setItem("devpulse_custom_apis", JSON.stringify(customApis));
+  }, [customApis]);
+  useEffect(() => {
+    localStorage.setItem("devpulse_disabled_apis", JSON.stringify([...disabledApiIds]));
+  }, [disabledApiIds]);
 
   useEffect(() => {
     localStorage.setItem("devpulse_api_keys", JSON.stringify(apiKeys));
@@ -209,11 +231,17 @@ export default function HealthDashboard() {
     return map;
   }, [apiKeys]);
 
+  // Compute active API list (built-in + custom, minus disabled)
+  const activeApis = useMemo<APIInfo[]>(() => {
+    const all: APIInfo[] = [...APIs, ...customApis];
+    return all.filter(a => !disabledApiIds.has(a.id));
+  }, [customApis, disabledApiIds]);
+
   const runProbe = useCallback(async () => {
     setIsProbing(true);
     try {
       const keyMap = getUserKeyMap();
-      const results = await probeAllApis(keyMap);
+      const results = await probeAllApis(keyMap, activeApis);
 
       const updatedResults = results.map(m => {
         const history = uptimeHistoryRef.current[m.apiId] || [];
@@ -239,10 +267,10 @@ export default function HealthDashboard() {
       trendDataRef.current = updated;
       setTrendData({ ...updated });
 
-      // Capture response previews during probe (no duplicate fetch)
+      // Capture response previews
       const previews: Record<string, any> = {};
       await Promise.allSettled(
-        APIs.slice(0, 8).map(async (api) => {
+        activeApis.slice(0, 8).map(async (api) => {
           try {
             let url = api.testUrl;
             if (api.requiresKey && keyMap[api.id]) {
@@ -279,7 +307,7 @@ export default function HealthDashboard() {
     } finally {
       setIsProbing(false);
     }
-  }, [getUserKeyMap, setMetrics, setProbeCount, setIsProbing]);
+  }, [getUserKeyMap, activeApis, setMetrics, setProbeCount, setIsProbing]);
 
   useEffect(() => {
     runProbe();
@@ -289,6 +317,23 @@ export default function HealthDashboard() {
 
   const handleAddKey = (key: UserApiKey) => setApiKeys(prev => [...prev, key]);
   const handleRemoveKey = (id: string) => setApiKeys(prev => prev.filter(k => k.id !== id));
+
+  // Registry handlers
+  const handleToggleApi = useCallback((id: string) => {
+    setDisabledApiIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+  const handleAddCustomApi = useCallback((api: CustomAPI) => setCustomApis(prev => [...prev, api]), []);
+  const handleRemoveCustomApi = useCallback((id: string) => {
+    setCustomApis(prev => prev.filter(a => a.id !== id));
+    setDisabledApiIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+  }, []);
+  const handleEditCustomApi = useCallback((api: CustomAPI) => {
+    setCustomApis(prev => prev.map(a => a.id === api.id ? api : a));
+  }, []);
 
   const handleTogglePreview = useCallback((id: string) => {
     setExpandedPreview(prev => prev === id ? null : id);
@@ -334,7 +379,7 @@ export default function HealthDashboard() {
                 </span>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setShowTrends(!showTrends)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -345,6 +390,16 @@ export default function HealthDashboard() {
               >
                 <TrendingUp className="w-4 h-4" />
                 Trends
+              </button>
+              <button
+                onClick={() => setShowRegistryManager(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card text-sm font-medium text-muted-foreground hover:text-foreground transition-all"
+              >
+                <Settings2 className="w-4 h-4" />
+                Manage APIs
+                <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs flex items-center justify-center font-mono">
+                  {activeApis.length}
+                </span>
               </button>
               <button
                 onClick={() => setShowKeyManager(true)}
@@ -361,7 +416,7 @@ export default function HealthDashboard() {
             </div>
           </div>
           <p className="text-muted-foreground text-lg max-w-2xl font-light">
-            Live health probing across {APIs.length} public APIs. All data is real, probed every 30 seconds from your browser.
+            Live health probing across {activeApis.length} APIs. All data is real, probed every 30 seconds from your browser.
             {probeCount > 0 && (
               <span className="text-primary/70 font-mono text-sm ml-2">({probeCount} probes)</span>
             )}
@@ -466,6 +521,18 @@ export default function HealthDashboard() {
         onRemoveKey={handleRemoveKey}
         isOpen={showKeyManager}
         onClose={() => setShowKeyManager(false)}
+      />
+
+      <ApiRegistryManager
+        builtInApis={APIs}
+        customApis={customApis}
+        disabledApiIds={disabledApiIds}
+        onToggleApi={handleToggleApi}
+        onRemoveCustomApi={handleRemoveCustomApi}
+        onAddCustomApi={handleAddCustomApi}
+        onEditCustomApi={handleEditCustomApi}
+        isOpen={showRegistryManager}
+        onClose={() => setShowRegistryManager(false)}
       />
     </section>
   );
