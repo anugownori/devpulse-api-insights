@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Code2, Copy, Check, ChevronDown } from "lucide-react";
+import { Code2, Copy, Check } from "lucide-react";
 import { APIs } from "@/data/apiData";
 
 const CODE_TEMPLATES: Record<string, { language: string; code: string }> = {
@@ -133,20 +133,22 @@ export default function CodeGenerator() {
           className="mb-12"
         >
           <div className="flex items-center gap-3 mb-4">
-            <Code2 className="w-6 h-6 text-neon-green" />
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              Code <span className="text-neon-green">Generator</span>
+            <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+              <Code2 className="w-5 h-5 text-accent" />
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold font-serif text-foreground">
+              Code <span className="text-accent">Generator</span>
             </h2>
           </div>
-          <p className="text-muted-foreground text-lg max-w-2xl">
+          <p className="text-muted-foreground text-lg max-w-2xl font-light">
             Select API combinations and get production-ready integration boilerplate instantly.
           </p>
         </motion.div>
 
         <div className="grid lg:grid-cols-5 gap-6">
           {/* Left: API selection + templates */}
-          <div className="lg:col-span-2 space-y-4">
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+          <div className="lg:col-span-2 space-y-3">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
               Integration Templates
             </h3>
             {TEMPLATE_KEYS.map(key => {
@@ -158,12 +160,12 @@ export default function CodeGenerator() {
                   onClick={() => setSelectedTemplate(key)}
                   className={`w-full text-left px-4 py-3 rounded-xl transition-all ${
                     selectedTemplate === key
-                      ? "glass-card border border-neon-green/30 glow-green"
-                      : "glass-card hover:border-muted-foreground/20 border border-transparent"
+                      ? "glass-card border border-accent/25 glow-accent"
+                      : "glass-card-hover"
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-neon-green font-mono text-xs">▸</span>
+                    <span className="text-accent font-mono text-xs">▸</span>
                     <span className="font-medium text-foreground">{names.join(" + ")}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1 ml-4">
@@ -174,8 +176,8 @@ export default function CodeGenerator() {
             })}
 
             {/* Custom combo */}
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+            <div className="mt-8">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-4">
                 Build Your Combo (select up to 3)
               </h3>
               <div className="flex flex-wrap gap-2">
@@ -183,9 +185,9 @@ export default function CodeGenerator() {
                   <button
                     key={api.id}
                     onClick={() => toggleApi(api.id)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
                       selectedApis.includes(api.id)
-                        ? "bg-neon-green/20 text-neon-green border border-neon-green/30"
+                        ? "bg-accent/15 text-accent border border-accent/25"
                         : "glass-card text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -197,7 +199,7 @@ export default function CodeGenerator() {
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-xs text-neon-green mt-3 font-mono"
+                  className="text-xs text-accent mt-3 font-mono"
                 >
                   ✓ {selectedApis.map(id => APIs.find(a => a.id === id)?.name).join(" + ")} — AI code generation coming soon
                 </motion.p>
@@ -210,26 +212,26 @@ export default function CodeGenerator() {
             key={selectedTemplate}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-3 glass-card rounded-xl border border-neon-green/10 overflow-hidden"
+            className="lg:col-span-3 glass-card rounded-2xl border border-border/50 overflow-hidden float-card"
           >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/50">
+              <div className="flex items-center gap-3">
                 <div className="flex gap-1.5">
-                  <span className="w-3 h-3 rounded-full bg-neon-red/60" />
-                  <span className="w-3 h-3 rounded-full bg-neon-amber/60" />
-                  <span className="w-3 h-3 rounded-full bg-neon-green/60" />
+                  <span className="w-3 h-3 rounded-full bg-status-down/50" />
+                  <span className="w-3 h-3 rounded-full bg-status-degraded/50" />
+                  <span className="w-3 h-3 rounded-full bg-status-healthy/50" />
                 </div>
-                <span className="text-xs text-muted-foreground font-mono ml-2">{template.language}</span>
+                <span className="text-xs text-muted-foreground font-mono">{template.language}</span>
               </div>
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted/20"
               >
-                {copied ? <Check className="w-3.5 h-3.5 text-neon-green" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? <Check className="w-3.5 h-3.5 text-accent" /> : <Copy className="w-3.5 h-3.5" />}
                 {copied ? "Copied!" : "Copy"}
               </button>
             </div>
-            <pre className="p-5 text-sm font-mono leading-relaxed overflow-x-auto text-foreground/90">
+            <pre className="p-5 text-sm font-mono leading-relaxed overflow-x-auto text-foreground/80">
               <code>{template.code}</code>
             </pre>
           </motion.div>

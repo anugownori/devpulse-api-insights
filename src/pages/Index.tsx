@@ -8,12 +8,16 @@ import Footer from "@/components/Footer";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background grid-bg">
+    <div className="min-h-screen bg-background relative">
       <Navbar />
       <HeroSection />
+      <div className="divider-gradient" />
       <HealthDashboard />
+      <div className="divider-gradient" />
       <CompatibilityGraph />
+      <div className="divider-gradient" />
       <CodeGenerator />
+      <div className="divider-gradient" />
       <DocSearch />
       <Footer />
     </div>

@@ -60,42 +60,39 @@ export default function ApiKeyManager({ apiKeys, onAddKey, onRemoveKey, isOpen, 
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={onClose}
         >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-md" />
 
-          {/* Modal */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             onClick={e => e.stopPropagation()}
-            className="relative glass-card gradient-border rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto"
+            className="relative glass-card gradient-border rounded-2xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto float-card"
           >
-            {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <Key className="w-5 h-5 text-neon-cyan" />
-                <h3 className="text-xl font-bold text-foreground">API Key Manager</h3>
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Key className="w-4 h-4 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground font-serif">API Key Manager</h3>
               </div>
-              <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-lg hover:bg-muted/20">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Security note */}
-            <div className="flex items-start gap-2 mb-6 p-3 rounded-lg bg-neon-amber/5 border border-neon-amber/15">
-              <Shield className="w-4 h-4 text-neon-amber mt-0.5 shrink-0" />
+            <div className="flex items-start gap-2 mb-6 p-3 rounded-xl bg-status-degraded/5 border border-status-degraded/10">
+              <Shield className="w-4 h-4 text-status-degraded mt-0.5 shrink-0" />
               <p className="text-xs text-muted-foreground">
                 Keys are stored locally in your browser only. They are used to probe API health endpoints and never sent to any third-party server.
               </p>
             </div>
 
-            {/* Add key form */}
             <div className="space-y-3 mb-6">
               <select
                 value={selectedApi}
                 onChange={e => setSelectedApi(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-lg bg-muted/30 border border-border text-foreground text-sm outline-none focus:border-primary/40 transition-colors"
+                className="w-full px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-foreground text-sm outline-none focus:border-primary/30 transition-colors"
               >
                 {SUPPORTED_APIS.map(api => (
                   <option key={api.id} value={api.id}>{api.name}</option>
@@ -109,7 +106,7 @@ export default function ApiKeyManager({ apiKeys, onAddKey, onRemoveKey, isOpen, 
                   onChange={e => setCustomName(e.target.value)}
                   placeholder="API name (e.g., Stripe)"
                   maxLength={50}
-                  className="w-full px-4 py-2.5 rounded-lg bg-muted/30 border border-border text-foreground text-sm outline-none focus:border-primary/40 transition-colors placeholder:text-muted-foreground"
+                  className="w-full px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-foreground text-sm outline-none focus:border-primary/30 transition-colors placeholder:text-muted-foreground"
                 />
               )}
 
@@ -121,21 +118,20 @@ export default function ApiKeyManager({ apiKeys, onAddKey, onRemoveKey, isOpen, 
                   placeholder={SUPPORTED_APIS.find(a => a.id === selectedApi)?.placeholder}
                   maxLength={200}
                   onKeyDown={e => e.key === "Enter" && handleAdd()}
-                  className="flex-1 px-4 py-2.5 rounded-lg bg-muted/30 border border-border text-foreground text-sm font-mono outline-none focus:border-primary/40 transition-colors placeholder:text-muted-foreground placeholder:font-sans"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-foreground text-sm font-mono outline-none focus:border-primary/30 transition-colors placeholder:text-muted-foreground placeholder:font-sans"
                 />
                 <button
                   onClick={handleAdd}
                   disabled={!keyValue.trim()}
-                  className="px-4 py-2.5 rounded-lg bg-primary/20 text-primary font-medium text-sm hover:bg-primary/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-4 py-2.5 rounded-xl bg-primary/15 text-primary font-medium text-sm hover:bg-primary/25 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
-            {/* Saved keys */}
             <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-3">
                 Saved Keys ({apiKeys.length})
               </h4>
               {apiKeys.length === 0 && (
@@ -148,7 +144,7 @@ export default function ApiKeyManager({ apiKeys, onAddKey, onRemoveKey, isOpen, 
                   key={ak.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border"
+                  className="flex items-center justify-between p-3 rounded-xl bg-muted/15 border border-border/50"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-foreground">{ak.name}</p>
@@ -159,13 +155,13 @@ export default function ApiKeyManager({ apiKeys, onAddKey, onRemoveKey, isOpen, 
                   <div className="flex items-center gap-1 ml-3">
                     <button
                       onClick={() => setShowKeys(prev => ({ ...prev, [ak.id]: !prev[ak.id] }))}
-                      className="p-1.5 rounded text-muted-foreground hover:text-foreground transition-colors"
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/20 transition-all"
                     >
                       {showKeys[ak.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                     <button
                       onClick={() => onRemoveKey(ak.id)}
-                      className="p-1.5 rounded text-muted-foreground hover:text-neon-red transition-colors"
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-status-down hover:bg-status-down/10 transition-all"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>

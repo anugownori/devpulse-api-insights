@@ -120,12 +120,14 @@ export default function DocSearch() {
           className="mb-12 text-center"
         >
           <div className="flex items-center gap-3 justify-center mb-4">
-            <Search className="w-6 h-6 text-neon-amber" />
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              Doc <span className="text-neon-amber">Search</span>
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Search className="w-5 h-5 text-primary" />
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold font-serif text-foreground">
+              Doc <span className="text-primary">Search</span>
             </h2>
           </div>
-          <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+          <p className="text-muted-foreground text-lg max-w-xl mx-auto font-light">
             Live documentation search across Wikipedia, Semantic Scholar, and DuckDuckGo — all real-time.
           </p>
         </motion.div>
@@ -137,7 +139,7 @@ export default function DocSearch() {
           viewport={{ once: true }}
           className="relative mb-10"
         >
-          <div className="glass-card gradient-border rounded-2xl flex items-center overflow-hidden">
+          <div className="glass-card gradient-border rounded-2xl flex items-center overflow-hidden float-card">
             <Search className="w-5 h-5 text-muted-foreground ml-5" />
             <input
               type="text"
@@ -150,19 +152,19 @@ export default function DocSearch() {
             <button
               onClick={handleSearch}
               disabled={isSearching}
-              className="px-6 py-4 bg-neon-amber/10 text-neon-amber font-semibold hover:bg-neon-amber/20 transition-colors"
+              className="px-6 py-4 bg-primary/10 text-primary font-semibold hover:bg-primary/20 transition-colors"
             >
               {isSearching ? <Loader2 className="w-5 h-5 animate-spin" /> : "Search"}
             </button>
           </div>
 
           {/* Quick suggestions */}
-          <div className="flex gap-2 mt-3 justify-center">
+          <div className="flex gap-2 mt-4 justify-center">
             {["air quality", "earthquake", "machine learning", "bitcoin"].map(s => (
               <button
                 key={s}
                 onClick={() => { setQuery(s); }}
-                className="text-xs px-3 py-1 rounded-full glass-card text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs px-3.5 py-1.5 rounded-full glass-card text-muted-foreground hover:text-foreground hover:border-primary/20 transition-all"
               >
                 {s}
               </button>
@@ -180,11 +182,11 @@ export default function DocSearch() {
               exit={{ opacity: 0 }}
               className="text-center py-12"
             >
-              <Loader2 className="w-8 h-8 text-neon-amber animate-spin mx-auto mb-4" />
+              <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-4" />
               <p className="text-muted-foreground">Searching live across multiple sources...</p>
             </motion.div>
           ) : (
-            <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
               {results.map((r, i) => (
                 <motion.a
                   href={r.url}
@@ -193,14 +195,14 @@ export default function DocSearch() {
                   key={i}
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  className="block glass-card rounded-xl p-5 hover:border-neon-amber/20 border border-transparent transition-colors"
+                  transition={{ delay: i * 0.08 }}
+                  className="block glass-card-hover gradient-border rounded-xl p-5"
                 >
                   <div className="flex items-start gap-3">
-                    <r.icon className="w-5 h-5 text-neon-amber mt-0.5 shrink-0" />
+                    <r.icon className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono text-neon-amber/70">{r.source}</span>
+                        <span className="text-xs font-mono text-primary/60">{r.source}</span>
                       </div>
                       <h3 className="font-semibold text-foreground mb-1">{r.title}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{r.snippet}</p>

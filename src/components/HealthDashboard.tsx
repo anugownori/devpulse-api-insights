@@ -9,15 +9,15 @@ import { useHealthStore } from "@/hooks/useHealthStore";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const statusConfig: Record<HealthStatus, { color: string; bg: string; label: string; icon: typeof Wifi }> = {
-  healthy: { color: "text-neon-green", bg: "bg-neon-green/10", label: "Healthy", icon: Wifi },
-  degraded: { color: "text-neon-amber", bg: "bg-neon-amber/10", label: "Degraded", icon: Clock },
-  down: { color: "text-neon-red", bg: "bg-neon-red/10", label: "Down", icon: WifiOff },
+  healthy: { color: "text-status-healthy", bg: "bg-status-healthy/10", label: "Healthy", icon: Wifi },
+  degraded: { color: "text-status-degraded", bg: "bg-status-degraded/10", label: "Degraded", icon: Clock },
+  down: { color: "text-status-down", bg: "bg-status-down/10", label: "Down", icon: WifiOff },
   unknown: { color: "text-muted-foreground", bg: "bg-muted/10", label: "Unknown", icon: Minus },
 };
 
 function LatencyBar({ latency, max = 3000 }: { latency: number; max?: number }) {
   const pct = Math.min((latency / max) * 100, 100);
-  const color = latency < 300 ? "bg-neon-green" : latency < 1000 ? "bg-neon-amber" : "bg-neon-red";
+  const color = latency < 300 ? "bg-status-healthy" : latency < 1000 ? "bg-status-degraded" : "bg-status-down";
   return (
     <div className="w-full h-1.5 rounded-full bg-muted/30">
       <motion.div
@@ -42,7 +42,7 @@ function AnimatedStat({ label, value, icon: Icon, color, borderColor }: {
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className={`glass-card rounded-xl p-5 border ${borderColor}`}
+      className={`glass-card-hover rounded-xl p-5 border ${borderColor}`}
     >
       <div className="flex items-center gap-2 mb-2">
         <Icon className={`w-4 h-4 ${color}`} />
@@ -78,7 +78,7 @@ function DashboardSkeleton() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="glass-card gradient-border rounded-xl p-5 space-y-3">
+        <div key={i} className="glass-card rounded-xl p-5 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Skeleton className="w-2.5 h-2.5 rounded-full bg-muted/50" />
@@ -131,7 +131,6 @@ export default function HealthDashboard() {
     return map;
   }, [apiKeys]);
 
-  // Fetch a small response preview for each API
   const fetchResponsePreviews = useCallback(async () => {
     const previews: Record<string, any> = {};
     const keyMap = getUserKeyMap();
@@ -149,7 +148,6 @@ export default function HealthDashboard() {
           clearTimeout(timeout);
           if (res.ok) {
             const data = await res.json();
-            // Only keep a small slice
             if (Array.isArray(data)) {
               previews[api.id] = data.slice(0, 1);
             } else if (typeof data === "object") {
@@ -226,7 +224,7 @@ export default function HealthDashboard() {
   const hasData = metrics.length > 0;
 
   return (
-    <section id="dashboard" className="py-24 px-6">
+    <section id="dashboard" className="py-24 px-6 relative">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -237,23 +235,25 @@ export default function HealthDashboard() {
         >
           <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
             <div className="flex items-center gap-3">
-              <Activity className="w-6 h-6 text-neon-cyan" />
-              <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-                API Health <span className="text-neon-cyan text-glow-cyan">Monitor</span>
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-primary" />
+              </div>
+              <h2 className="text-3xl md:text-4xl font-bold font-serif text-foreground">
+                API Health <span className="text-primary">Monitor</span>
               </h2>
               {isProbing && (
-                <span className="flex items-center gap-1.5 text-xs font-mono text-neon-cyan">
+                <span className="flex items-center gap-1.5 text-xs font-mono text-primary/80">
                   <Loader2 className="w-3 h-3 animate-spin" />
-                  PROBING LIVE
+                  PROBING
                 </span>
               )}
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowTrends(!showTrends)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   showTrends
-                    ? "bg-neon-magenta/20 text-neon-magenta border border-neon-magenta/30"
+                    ? "bg-secondary/15 text-secondary border border-secondary/25"
                     : "glass-card text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -262,32 +262,32 @@ export default function HealthDashboard() {
               </button>
               <button
                 onClick={() => setShowKeyManager(true)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg glass-card text-sm font-medium text-muted-foreground hover:text-foreground transition-all hover:border-neon-cyan/20 border border-transparent"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card text-sm font-medium text-muted-foreground hover:text-foreground transition-all"
               >
                 <Key className="w-4 h-4" />
                 API Keys
                 {apiKeys.length > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-neon-cyan/20 text-neon-cyan text-xs flex items-center justify-center font-mono">
+                  <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs flex items-center justify-center font-mono">
                     {apiKeys.length}
                   </span>
                 )}
               </button>
             </div>
           </div>
-          <p className="text-muted-foreground text-lg max-w-2xl">
+          <p className="text-muted-foreground text-lg max-w-2xl font-light">
             Live health probing across {APIs.length} public APIs. All data is real — probed every 30 seconds from your browser.
             {probeCount > 0 && (
-              <span className="text-neon-cyan font-mono text-sm ml-2">({probeCount} probes completed)</span>
+              <span className="text-primary/70 font-mono text-sm ml-2">({probeCount} probes)</span>
             )}
           </p>
         </motion.div>
 
-        {/* Summary cards - animated counters */}
+        {/* Summary cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <AnimatedStat label="Healthy" value={healthy} icon={ArrowUp} color="text-neon-green" borderColor="border-neon-green/20" />
-          <AnimatedStat label="Degraded" value={degraded} icon={Minus} color="text-neon-amber" borderColor="border-neon-amber/20" />
-          <AnimatedStat label="Down" value={down} icon={ArrowDown} color="text-neon-red" borderColor="border-neon-red/20" />
-          <AnimatedStat label="Avg Latency" value={`${avgLatency}ms`} icon={Clock} color="text-neon-cyan" borderColor="border-neon-cyan/20" />
+          <AnimatedStat label="Healthy" value={healthy} icon={ArrowUp} color="text-status-healthy" borderColor="border-status-healthy/15" />
+          <AnimatedStat label="Degraded" value={degraded} icon={Minus} color="text-status-degraded" borderColor="border-status-degraded/15" />
+          <AnimatedStat label="Down" value={down} icon={ArrowDown} color="text-status-down" borderColor="border-status-down/15" />
+          <AnimatedStat label="Avg Latency" value={`${avgLatency}ms`} icon={Clock} color="text-secondary" borderColor="border-secondary/15" />
         </div>
 
         {/* Trend Charts */}
@@ -300,8 +300,8 @@ export default function HealthDashboard() {
               className="mb-8 overflow-hidden"
             >
               <div className="flex items-center gap-3 mb-4">
-                <TrendingUp className="w-5 h-5 text-neon-magenta" />
-                <h3 className="text-lg font-semibold text-foreground">Live Latency Trends</h3>
+                <TrendingUp className="w-5 h-5 text-secondary" />
+                <h3 className="text-lg font-semibold text-foreground font-serif">Live Latency Trends</h3>
                 <span className="text-xs text-muted-foreground font-mono">
                   {probeCount > 0 ? `${Math.min(probeCount, 30)} data points` : 'Collecting...'}
                 </span>
@@ -335,9 +335,9 @@ export default function HealthDashboard() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all ${
                   filter === f
-                    ? "bg-primary/20 text-primary border border-primary/30"
+                    ? "bg-primary/15 text-primary border border-primary/25"
                     : "glass-card text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -348,14 +348,14 @@ export default function HealthDashboard() {
           <button
             onClick={runProbe}
             disabled={isProbing}
-            className="flex items-center gap-2 px-4 py-1.5 rounded-lg glass-card text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-1.5 rounded-xl glass-card text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
           >
             {isProbing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             {isProbing ? "Probing..." : "Probe Now"}
           </button>
         </div>
 
-        {/* API Grid - with skeletons */}
+        {/* API Grid */}
         {!hasData ? (
           <DashboardSkeleton />
         ) : (
@@ -373,67 +373,68 @@ export default function HealthDashboard() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ delay: i * 0.03 }}
-                    className="glass-card gradient-border rounded-xl p-5 hover:scale-[1.02] transition-transform"
+                    className="card-3d"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full ${m.status === "healthy" ? "bg-neon-green animate-pulse-glow" : m.status === "degraded" ? "bg-neon-amber" : "bg-neon-red"}`} />
-                        <h3 className="font-semibold text-foreground">{m.apiName}</h3>
-                        {hasKey && <Key className="w-3 h-3 text-neon-cyan" />}
-                      </div>
-                      <span className={`text-xs font-mono px-2 py-0.5 rounded ${cfg.bg} ${cfg.color}`}>
-                        {cfg.label}
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Latency</span>
-                        <span className="font-mono text-foreground">{m.latencyMs}ms</span>
-                      </div>
-                      <LatencyBar latency={m.latencyMs} />
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Uptime</span>
-                        <span className="font-mono text-foreground">
-                          {m.uptime24h > 0 ? `${m.uptime24h.toFixed(1)}%` : '—'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Status</span>
-                        <span className={`font-mono ${m.statusCode >= 200 && m.statusCode < 300 ? "text-neon-green" : m.statusCode === 0 ? "text-neon-red" : "text-neon-amber"}`}>
-                          {m.statusCode || "ERR"}
-                        </span>
-                      </div>
-                      {m.rateLimitRemaining !== null && (
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Rate Limit</span>
-                          <span className="font-mono text-foreground">{m.rateLimitRemaining} left</span>
+                    <div className="card-3d-inner glass-card-hover gradient-border rounded-xl p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2.5 h-2.5 rounded-full ${m.status === "healthy" ? "bg-status-healthy animate-pulse-soft" : m.status === "degraded" ? "bg-status-degraded" : "bg-status-down"}`} />
+                          <h3 className="font-semibold text-foreground">{m.apiName}</h3>
+                          {hasKey && <Key className="w-3 h-3 text-primary" />}
                         </div>
-                      )}
-                      {m.errorMessage && (
-                        <p className="text-xs text-neon-red mt-1 font-mono">{m.errorMessage}</p>
-                      )}
-
-                      {/* Response preview toggle */}
-                      {responseData[m.apiId] && (
-                        <button
-                          onClick={() => setExpandedPreview(isPreviewOpen ? null : m.apiId)}
-                          className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-neon-cyan transition-colors mt-1 font-mono"
-                        >
-                          <Eye className="w-3 h-3" />
-                          Response Preview
-                          <ChevronDown className={`w-3 h-3 transition-transform ${isPreviewOpen ? "rotate-180" : ""}`} />
-                        </button>
-                      )}
-
-                      <AnimatePresence>
-                        {isPreviewOpen && (
-                          <ResponsePreview apiId={m.apiId} responseData={responseData[m.apiId]} />
+                        <span className={`text-xs font-mono px-2.5 py-1 rounded-lg ${cfg.bg} ${cfg.color}`}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Latency</span>
+                          <span className="font-mono text-foreground">{m.latencyMs}ms</span>
+                        </div>
+                        <LatencyBar latency={m.latencyMs} />
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Uptime</span>
+                          <span className="font-mono text-foreground">
+                            {m.uptime24h > 0 ? `${m.uptime24h.toFixed(1)}%` : '—'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Status</span>
+                          <span className={`font-mono ${m.statusCode >= 200 && m.statusCode < 300 ? "text-status-healthy" : m.statusCode === 0 ? "text-status-down" : "text-status-degraded"}`}>
+                            {m.statusCode || "ERR"}
+                          </span>
+                        </div>
+                        {m.rateLimitRemaining !== null && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Rate Limit</span>
+                            <span className="font-mono text-foreground">{m.rateLimitRemaining} left</span>
+                          </div>
                         )}
-                      </AnimatePresence>
+                        {m.errorMessage && (
+                          <p className="text-xs text-status-down mt-1 font-mono">{m.errorMessage}</p>
+                        )}
 
-                      <p className="text-[10px] text-muted-foreground font-mono pt-1">
-                        {new Date(m.lastChecked).toLocaleTimeString()}
-                      </p>
+                        {responseData[m.apiId] && (
+                          <button
+                            onClick={() => setExpandedPreview(isPreviewOpen ? null : m.apiId)}
+                            className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-primary transition-colors mt-1 font-mono"
+                          >
+                            <Eye className="w-3 h-3" />
+                            Response Preview
+                            <ChevronDown className={`w-3 h-3 transition-transform ${isPreviewOpen ? "rotate-180" : ""}`} />
+                          </button>
+                        )}
+
+                        <AnimatePresence>
+                          {isPreviewOpen && (
+                            <ResponsePreview apiId={m.apiId} responseData={responseData[m.apiId]} />
+                          )}
+                        </AnimatePresence>
+
+                        <p className="text-[10px] text-muted-foreground font-mono pt-1">
+                          {new Date(m.lastChecked).toLocaleTimeString()}
+                        </p>
+                      </div>
                     </div>
                   </motion.div>
                 );

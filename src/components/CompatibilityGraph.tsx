@@ -13,17 +13,23 @@ export default function CompatibilityGraph() {
   }, [selectedApi]);
 
   const scoreColor = (score: number) => {
-    if (score >= 80) return "text-neon-green";
-    if (score >= 60) return "text-neon-cyan";
-    if (score >= 40) return "text-neon-amber";
-    return "text-neon-red";
+    if (score >= 80) return "text-status-healthy";
+    if (score >= 60) return "text-secondary";
+    if (score >= 40) return "text-status-degraded";
+    return "text-status-down";
   };
 
-  const scoreBg = (score: number) => {
-    if (score >= 80) return "bg-neon-green/10 border-neon-green/20";
-    if (score >= 60) return "bg-neon-cyan/10 border-neon-cyan/20";
-    if (score >= 40) return "bg-neon-amber/10 border-neon-amber/20";
-    return "bg-neon-red/10 border-neon-red/20";
+  const scoreBorderColor = (score: number) => {
+    if (score >= 80) return "border-status-healthy/15";
+    if (score >= 60) return "border-secondary/15";
+    if (score >= 40) return "border-status-degraded/15";
+    return "border-status-down/15";
+  };
+
+  const scoreBarColor = (score: number) => {
+    if (score >= 80) return "bg-status-healthy";
+    if (score >= 60) return "bg-secondary";
+    return "bg-status-degraded";
   };
 
   return (
@@ -36,12 +42,14 @@ export default function CompatibilityGraph() {
           className="mb-12"
         >
           <div className="flex items-center gap-3 mb-4">
-            <GitBranch className="w-6 h-6 text-neon-magenta" />
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground">
-              Compatibility <span className="text-neon-magenta text-glow-magenta">Graph</span>
+            <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
+              <GitBranch className="w-5 h-5 text-secondary" />
+            </div>
+            <h2 className="text-3xl md:text-4xl font-bold font-serif text-foreground">
+              Compatibility <span className="text-secondary">Graph</span>
             </h2>
           </div>
-          <p className="text-muted-foreground text-lg max-w-2xl">
+          <p className="text-muted-foreground text-lg max-w-2xl font-light">
             Discover which APIs work best together. Select an API to see its compatibility scores.
           </p>
         </motion.div>
@@ -50,8 +58,8 @@ export default function CompatibilityGraph() {
         <div className="flex flex-wrap gap-2 mb-10">
           <button
             onClick={() => setSelectedApi(null)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              !selectedApi ? "bg-neon-magenta/20 text-neon-magenta border border-neon-magenta/30" : "glass-card text-muted-foreground hover:text-foreground"
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              !selectedApi ? "bg-secondary/15 text-secondary border border-secondary/25" : "glass-card text-muted-foreground hover:text-foreground"
             }`}
           >
             All Connections
@@ -60,9 +68,9 @@ export default function CompatibilityGraph() {
             <button
               key={api.id}
               onClick={() => setSelectedApi(api.id === selectedApi ? null : api.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                 selectedApi === api.id
-                  ? "bg-neon-magenta/20 text-neon-magenta border border-neon-magenta/30"
+                  ? "bg-secondary/15 text-secondary border border-secondary/25"
                   : "glass-card text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -83,28 +91,29 @@ export default function CompatibilityGraph() {
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.05 }}
-                className={`glass-card rounded-xl p-5 border ${scoreBg(edge.score)} hover:scale-[1.02] transition-transform`}
+                className="card-3d"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-foreground">{sourceApi?.name}</span>
-                    <ArrowRight className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm font-semibold text-foreground">{targetApi?.name}</span>
+                <div className={`card-3d-inner glass-card-hover rounded-xl p-5 border ${scoreBorderColor(edge.score)}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-foreground">{sourceApi?.name}</span>
+                      <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-semibold text-foreground">{targetApi?.name}</span>
+                    </div>
+                    <span className={`text-2xl font-bold font-mono ${scoreColor(edge.score)}`}>
+                      {edge.score}
+                    </span>
                   </div>
-                  <span className={`text-2xl font-bold font-mono ${scoreColor(edge.score)}`}>
-                    {edge.score}
-                  </span>
-                </div>
-                <p className="text-sm text-muted-foreground">{edge.reason}</p>
-                {/* Score bar */}
-                <div className="mt-3 w-full h-1.5 rounded-full bg-muted/20">
-                  <motion.div
-                    className={`h-full rounded-full ${edge.score >= 80 ? "bg-neon-green" : edge.score >= 60 ? "bg-neon-cyan" : "bg-neon-amber"}`}
-                    initial={{ width: 0 }}
-                    whileInView={{ width: `${edge.score}%` }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.8, delay: i * 0.05 }}
-                  />
+                  <p className="text-sm text-muted-foreground">{edge.reason}</p>
+                  <div className="mt-3 w-full h-1.5 rounded-full bg-muted/20">
+                    <motion.div
+                      className={`h-full rounded-full ${scoreBarColor(edge.score)}`}
+                      initial={{ width: 0 }}
+                      whileInView={{ width: `${edge.score}%` }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.8, delay: i * 0.05 }}
+                    />
+                  </div>
                 </div>
               </motion.div>
             );
