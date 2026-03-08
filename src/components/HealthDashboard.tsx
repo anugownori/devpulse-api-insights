@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, memo, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp, Loader2, Eye, ChevronDown } from "lucide-react";
 import { probeAllApis, APIs, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
@@ -15,7 +15,7 @@ const statusConfig: Record<HealthStatus, { color: string; bg: string; label: str
   unknown: { color: "text-muted-foreground", bg: "bg-muted/10", label: "Unknown", icon: Minus },
 };
 
-function LatencyBar({ latency, max = 3000 }: { latency: number; max?: number }) {
+const LatencyBar = memo(function LatencyBar({ latency, max = 3000 }: { latency: number; max?: number }) {
   const pct = Math.min((latency / max) * 100, 100);
   const color = latency < 300 ? "bg-status-healthy" : latency < 1000 ? "bg-status-degraded" : "bg-status-down";
   return (
@@ -28,9 +28,9 @@ function LatencyBar({ latency, max = 3000 }: { latency: number; max?: number }) 
       />
     </div>
   );
-}
+});
 
-function AnimatedStat({ label, value, icon: Icon, color, borderColor }: {
+const AnimatedStat = memo(function AnimatedStat({ label, value, icon: Icon, color, borderColor }: {
   label: string; value: number | string; icon: any; color: string; borderColor: string;
 }) {
   const numericValue = typeof value === "number" ? value : parseInt(value) || 0;
@@ -53,9 +53,9 @@ function AnimatedStat({ label, value, icon: Icon, color, borderColor }: {
       </p>
     </motion.div>
   );
-}
+});
 
-function ResponsePreview({ apiId, responseData }: { apiId: string; responseData: any }) {
+const ResponsePreview = memo(function ResponsePreview({ responseData }: { responseData: any }) {
   if (!responseData) return null;
   const json = JSON.stringify(responseData, null, 2);
   const truncated = json.length > 300 ? json.slice(0, 300) + "\n..." : json;
@@ -72,7 +72,7 @@ function ResponsePreview({ apiId, responseData }: { apiId: string; responseData:
       </pre>
     </motion.div>
   );
-}
+});
 
 function DashboardSkeleton() {
   return (
@@ -103,6 +103,83 @@ function DashboardSkeleton() {
   );
 }
 
+const ApiCard = memo(function ApiCard({ m, hasKey, responseData, expandedPreview, onTogglePreview }: {
+  m: APIHealthMetrics;
+  hasKey: boolean;
+  responseData: any;
+  expandedPreview: string | null;
+  onTogglePreview: (id: string) => void;
+}) {
+  const cfg = statusConfig[m.status];
+  const isPreviewOpen = expandedPreview === m.apiId;
+
+  return (
+    <div className="card-3d">
+      <div className="card-3d-inner glass-card-hover gradient-border rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className={`w-2.5 h-2.5 rounded-full ${m.status === "healthy" ? "bg-status-healthy animate-pulse-soft" : m.status === "degraded" ? "bg-status-degraded" : "bg-status-down"}`} />
+            <h3 className="font-semibold text-foreground">{m.apiName}</h3>
+            {hasKey && <Key className="w-3 h-3 text-primary" />}
+          </div>
+          <span className={`text-xs font-mono px-2.5 py-1 rounded-lg ${cfg.bg} ${cfg.color}`}>
+            {cfg.label}
+          </span>
+        </div>
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Latency</span>
+            <span className="font-mono text-foreground">{m.latencyMs}ms</span>
+          </div>
+          <LatencyBar latency={m.latencyMs} />
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Uptime</span>
+            <span className="font-mono text-foreground">
+              {m.uptime24h > 0 ? `${m.uptime24h.toFixed(1)}%` : '—'}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">Status</span>
+            <span className={`font-mono ${m.statusCode >= 200 && m.statusCode < 300 ? "text-status-healthy" : m.statusCode === 0 ? "text-status-down" : "text-status-degraded"}`}>
+              {m.statusCode || "ERR"}
+            </span>
+          </div>
+          {m.rateLimitRemaining !== null && (
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Rate Limit</span>
+              <span className="font-mono text-foreground">{m.rateLimitRemaining} left</span>
+            </div>
+          )}
+          {m.errorMessage && (
+            <p className="text-xs text-status-down mt-1 font-mono">{m.errorMessage}</p>
+          )}
+
+          {responseData && (
+            <button
+              onClick={() => onTogglePreview(m.apiId)}
+              className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-primary transition-colors mt-1 font-mono"
+            >
+              <Eye className="w-3 h-3" />
+              Response Preview
+              <ChevronDown className={`w-3 h-3 transition-transform ${isPreviewOpen ? "rotate-180" : ""}`} />
+            </button>
+          )}
+
+          <AnimatePresence>
+            {isPreviewOpen && (
+              <ResponsePreview responseData={responseData} />
+            )}
+          </AnimatePresence>
+
+          <p className="text-[10px] text-muted-foreground font-mono pt-1">
+            {new Date(m.lastChecked).toLocaleTimeString()}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export default function HealthDashboard() {
   const { metrics, probeCount, isProbing, setMetrics, setProbeCount, setIsProbing } = useHealthStore();
   const [filter, setFilter] = useState<HealthStatus | "all">("all");
@@ -120,6 +197,7 @@ export default function HealthDashboard() {
   const [responseData, setResponseData] = useState<Record<string, any>>({});
   const trendDataRef = useRef<Record<string, TrendPoint[]>>({});
   const uptimeHistoryRef = useRef<Record<string, boolean[]>>({});
+  const probeCountRef = useRef(0);
 
   useEffect(() => {
     localStorage.setItem("devpulse_api_keys", JSON.stringify(apiKeys));
@@ -131,47 +209,11 @@ export default function HealthDashboard() {
     return map;
   }, [apiKeys]);
 
-  const fetchResponsePreviews = useCallback(async () => {
-    const previews: Record<string, any> = {};
-    const keyMap = getUserKeyMap();
-
-    await Promise.allSettled(
-      APIs.slice(0, 8).map(async (api) => {
-        try {
-          let url = api.testUrl;
-          if (api.requiresKey && keyMap[api.id]) {
-            url = url.replace(/api_key=[^&]+/, `api_key=${encodeURIComponent(keyMap[api.id])}`);
-          }
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 5000);
-          const res = await fetch(url, { signal: controller.signal });
-          clearTimeout(timeout);
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data)) {
-              previews[api.id] = data.slice(0, 1);
-            } else if (typeof data === "object") {
-              const keys = Object.keys(data).slice(0, 5);
-              const small: any = {};
-              keys.forEach(k => {
-                const val = data[k];
-                if (typeof val === "string" && val.length > 100) small[k] = val.slice(0, 100) + "...";
-                else if (Array.isArray(val)) small[k] = `[${val.length} items]`;
-                else small[k] = val;
-              });
-              previews[api.id] = small;
-            }
-          }
-        } catch { /* skip */ }
-      })
-    );
-    setResponseData(prev => ({ ...prev, ...previews }));
-  }, [getUserKeyMap]);
-
   const runProbe = useCallback(async () => {
     setIsProbing(true);
     try {
-      const results = await probeAllApis(getUserKeyMap());
+      const keyMap = getUserKeyMap();
+      const results = await probeAllApis(keyMap);
 
       const updatedResults = results.map(m => {
         const history = uptimeHistoryRef.current[m.apiId] || [];
@@ -183,7 +225,8 @@ export default function HealthDashboard() {
       });
 
       setMetrics(updatedResults);
-      setProbeCount(probeCount + 1);
+      probeCountRef.current += 1;
+      setProbeCount(probeCountRef.current);
 
       const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
       const updated = { ...trendDataRef.current };
@@ -195,33 +238,76 @@ export default function HealthDashboard() {
       });
       trendDataRef.current = updated;
       setTrendData({ ...updated });
+
+      // Capture response previews during probe (no duplicate fetch)
+      const previews: Record<string, any> = {};
+      await Promise.allSettled(
+        APIs.slice(0, 8).map(async (api) => {
+          try {
+            let url = api.testUrl;
+            if (api.requiresKey && keyMap[api.id]) {
+              url = url.replace(/api_key=[^&]+/, `api_key=${encodeURIComponent(keyMap[api.id])}`);
+            }
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeout);
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data)) {
+                previews[api.id] = data.slice(0, 1);
+              } else if (typeof data === "object") {
+                const keys = Object.keys(data).slice(0, 5);
+                const small: any = {};
+                keys.forEach(k => {
+                  const val = data[k];
+                  if (typeof val === "string" && val.length > 100) small[k] = val.slice(0, 100) + "...";
+                  else if (Array.isArray(val)) small[k] = `[${val.length} items]`;
+                  else small[k] = val;
+                });
+                previews[api.id] = small;
+              }
+            }
+          } catch { /* skip */ }
+        })
+      );
+      if (Object.keys(previews).length > 0) {
+        setResponseData(prev => ({ ...prev, ...previews }));
+      }
     } catch (err) {
       console.error("Probe error:", err);
     } finally {
       setIsProbing(false);
     }
-  }, [getUserKeyMap, probeCount, setMetrics, setProbeCount, setIsProbing]);
+  }, [getUserKeyMap, setMetrics, setProbeCount, setIsProbing]);
 
   useEffect(() => {
     runProbe();
-    fetchResponsePreviews();
     const interval = setInterval(runProbe, 30000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [runProbe]);
 
   const handleAddKey = (key: UserApiKey) => setApiKeys(prev => [...prev, key]);
   const handleRemoveKey = (id: string) => setApiKeys(prev => prev.filter(k => k.id !== id));
 
-  const filtered = filter === "all" ? metrics : metrics.filter(m => m.status === filter);
-  const healthy = metrics.filter(m => m.status === "healthy").length;
-  const degraded = metrics.filter(m => m.status === "degraded").length;
-  const down = metrics.filter(m => m.status === "down").length;
-  const avgLatency = metrics.length
-    ? Math.round(metrics.filter(m => m.latencyMs > 0).reduce((s, m) => s + m.latencyMs, 0) / Math.max(metrics.filter(m => m.latencyMs > 0).length, 1))
-    : 0;
+  const handleTogglePreview = useCallback((id: string) => {
+    setExpandedPreview(prev => prev === id ? null : id);
+  }, []);
+
+  const { filtered, healthy, degraded, down, avgLatency } = useMemo(() => {
+    const healthy = metrics.filter(m => m.status === "healthy").length;
+    const degraded = metrics.filter(m => m.status === "degraded").length;
+    const down = metrics.filter(m => m.status === "down").length;
+    const withLatency = metrics.filter(m => m.latencyMs > 0);
+    const avgLatency = withLatency.length
+      ? Math.round(withLatency.reduce((s, m) => s + m.latencyMs, 0) / withLatency.length)
+      : 0;
+    const filtered = filter === "all" ? metrics : metrics.filter(m => m.status === filter);
+    return { filtered, healthy, degraded, down, avgLatency };
+  }, [metrics, filter]);
 
   const hasData = metrics.length > 0;
+  const apiKeyIds = useMemo(() => new Set(apiKeys.map(k => k.apiId)), [apiKeys]);
 
   return (
     <section id="dashboard" className="py-24 px-6 relative">
@@ -360,86 +446,16 @@ export default function HealthDashboard() {
           <DashboardSkeleton />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <AnimatePresence mode="popLayout">
-              {filtered.map((m, i) => {
-                const cfg = statusConfig[m.status];
-                const hasKey = apiKeys.some(k => k.apiId === m.apiId);
-                const isPreviewOpen = expandedPreview === m.apiId;
-                return (
-                  <motion.div
-                    key={m.apiId}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ delay: i * 0.03 }}
-                    className="card-3d"
-                  >
-                    <div className="card-3d-inner glass-card-hover gradient-border rounded-xl p-5">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-full ${m.status === "healthy" ? "bg-status-healthy animate-pulse-soft" : m.status === "degraded" ? "bg-status-degraded" : "bg-status-down"}`} />
-                          <h3 className="font-semibold text-foreground">{m.apiName}</h3>
-                          {hasKey && <Key className="w-3 h-3 text-primary" />}
-                        </div>
-                        <span className={`text-xs font-mono px-2.5 py-1 rounded-lg ${cfg.bg} ${cfg.color}`}>
-                          {cfg.label}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Latency</span>
-                          <span className="font-mono text-foreground">{m.latencyMs}ms</span>
-                        </div>
-                        <LatencyBar latency={m.latencyMs} />
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Uptime</span>
-                          <span className="font-mono text-foreground">
-                            {m.uptime24h > 0 ? `${m.uptime24h.toFixed(1)}%` : '—'}
-                          </span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Status</span>
-                          <span className={`font-mono ${m.statusCode >= 200 && m.statusCode < 300 ? "text-status-healthy" : m.statusCode === 0 ? "text-status-down" : "text-status-degraded"}`}>
-                            {m.statusCode || "ERR"}
-                          </span>
-                        </div>
-                        {m.rateLimitRemaining !== null && (
-                          <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Rate Limit</span>
-                            <span className="font-mono text-foreground">{m.rateLimitRemaining} left</span>
-                          </div>
-                        )}
-                        {m.errorMessage && (
-                          <p className="text-xs text-status-down mt-1 font-mono">{m.errorMessage}</p>
-                        )}
-
-                        {responseData[m.apiId] && (
-                          <button
-                            onClick={() => setExpandedPreview(isPreviewOpen ? null : m.apiId)}
-                            className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-primary transition-colors mt-1 font-mono"
-                          >
-                            <Eye className="w-3 h-3" />
-                            Response Preview
-                            <ChevronDown className={`w-3 h-3 transition-transform ${isPreviewOpen ? "rotate-180" : ""}`} />
-                          </button>
-                        )}
-
-                        <AnimatePresence>
-                          {isPreviewOpen && (
-                            <ResponsePreview apiId={m.apiId} responseData={responseData[m.apiId]} />
-                          )}
-                        </AnimatePresence>
-
-                        <p className="text-[10px] text-muted-foreground font-mono pt-1">
-                          {new Date(m.lastChecked).toLocaleTimeString()}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+            {filtered.map((m) => (
+              <ApiCard
+                key={m.apiId}
+                m={m}
+                hasKey={apiKeyIds.has(m.apiId)}
+                responseData={responseData[m.apiId]}
+                expandedPreview={expandedPreview}
+                onTogglePreview={handleTogglePreview}
+              />
+            ))}
           </div>
         )}
       </div>

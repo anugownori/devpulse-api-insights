@@ -1,10 +1,18 @@
+import { lazy, Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import HealthDashboard from "@/components/HealthDashboard";
-import CompatibilityGraph from "@/components/CompatibilityGraph";
-import CodeGenerator from "@/components/CodeGenerator";
-import DocSearch from "@/components/DocSearch";
 import Footer from "@/components/Footer";
+
+const CompatibilityGraph = lazy(() => import("@/components/CompatibilityGraph"));
+const CodeGenerator = lazy(() => import("@/components/CodeGenerator"));
+const DocSearch = lazy(() => import("@/components/DocSearch"));
+
+const SectionFallback = () => (
+  <div className="py-24 px-6 flex items-center justify-center">
+    <div className="w-6 h-6 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+  </div>
+);
 
 const Index = () => {
   return (
@@ -14,11 +22,17 @@ const Index = () => {
       <div className="divider-gradient" />
       <HealthDashboard />
       <div className="divider-gradient" />
-      <CompatibilityGraph />
+      <Suspense fallback={<SectionFallback />}>
+        <CompatibilityGraph />
+      </Suspense>
       <div className="divider-gradient" />
-      <CodeGenerator />
+      <Suspense fallback={<SectionFallback />}>
+        <CodeGenerator />
+      </Suspense>
       <div className="divider-gradient" />
-      <DocSearch />
+      <Suspense fallback={<SectionFallback />}>
+        <DocSearch />
+      </Suspense>
       <Footer />
     </div>
   );
