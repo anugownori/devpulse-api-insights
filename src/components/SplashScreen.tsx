@@ -1,263 +1,377 @@
-import { useState, useCallback, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 
-const PULSE_POINTS = 60;
-
-function generateECGPath() {
-  const points: string[] = [];
-  for (let i = 0; i <= PULSE_POINTS; i++) {
-    const x = (i / PULSE_POINTS) * 100;
-    let y = 50;
-    const pos = i / PULSE_POINTS;
-    if (pos > 0.35 && pos < 0.38) y = 35;
-    else if (pos > 0.38 && pos < 0.4) y = 50;
-    else if (pos > 0.4 && pos < 0.42) y = 70;
-    else if (pos > 0.42 && pos < 0.45) y = 10;
-    else if (pos > 0.45 && pos < 0.48) y = 80;
-    else if (pos > 0.48 && pos < 0.5) y = 45;
-    else if (pos > 0.5 && pos < 0.52) y = 50;
-    else if (pos > 0.65 && pos < 0.68) y = 40;
-    else if (pos > 0.68 && pos < 0.7) y = 55;
-    points.push(`${x},${y}`);
-  }
-  return `M${points.join(" L")}`;
-}
-
-const ecgPath = generateECGPath();
-
-function BeatingHeart({ phase, onDoubleTap }: { phase: "idle" | "loading" | "done"; onDoubleTap: () => void }) {
-  const lastTapRef = useRef(0);
-
-  const handleTap = useCallback(() => {
-    const now = Date.now();
-    if (now - lastTapRef.current < 500) {
-      onDoubleTap();
-      lastTapRef.current = 0;
-    } else {
-      lastTapRef.current = now;
-    }
-  }, [onDoubleTap]);
-
+/* ── Radar ping rings ── */
+function RadarRings({ active }: { active: boolean }) {
   return (
-    <motion.div
-      className="cursor-pointer select-none"
-      onClick={handleTap}
-      whileTap={{ scale: 0.9 }}
-      animate={
-        phase === "idle"
-          ? { scale: [1, 1.08, 1, 1.12, 1] }
-          : phase === "loading"
-          ? { scale: [1, 1.3, 0.95, 1.25, 1] }
-          : { scale: [1, 2.5], opacity: [1, 0] }
-      }
-      transition={
-        phase === "idle"
-          ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
-          : phase === "loading"
-          ? { duration: 0.6, repeat: Infinity, ease: "easeInOut" }
-          : { duration: 0.8, ease: "easeIn" }
-      }
-    >
-      <svg
-        width="120"
-        height="120"
-        viewBox="0 0 24 24"
-        fill="none"
-        className="drop-shadow-[0_0_40px_hsl(4_70%_55%/0.6)]"
-      >
-        <defs>
-          <linearGradient id="heart-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="hsl(350 80% 58%)" />
-            <stop offset="50%" stopColor="hsl(4 70% 55%)" />
-            <stop offset="100%" stopColor="hsl(340 75% 50%)" />
-          </linearGradient>
-          <filter id="heart-glow">
-            <feGaussianBlur stdDeviation="1.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <path
-          d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
-          fill="url(#heart-grad)"
-          filter="url(#heart-glow)"
-        />
-      </svg>
-    </motion.div>
-  );
-}
-
-function PulseLoader({ progress }: { progress: number }) {
-  return (
-    <div className="w-72 md:w-96">
-      {/* ECG Line */}
-      <svg viewBox="0 0 100 100" className="w-full h-16 mb-6" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="ecg-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-            <stop offset={`${Math.max(progress - 10, 0)}%`} stopColor="hsl(var(--primary))" stopOpacity="0.3" />
-            <stop offset={`${progress}%`} stopColor="hsl(var(--status-healthy))" stopOpacity="1" />
-            <stop offset={`${Math.min(progress + 1, 100)}%`} stopColor="hsl(var(--primary))" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path d={ecgPath} fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="0.5" strokeOpacity="0.15" />
-        <motion.path
-          d={ecgPath}
-          fill="none"
-          stroke="url(#ecg-grad)"
-          strokeWidth="1.5"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: progress / 100 }}
-          transition={{ duration: 0.3, ease: "linear" }}
-        />
-      </svg>
-
-      {/* Progress bar */}
-      <div className="relative h-1.5 rounded-full bg-muted/30 overflow-hidden">
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+      {[1, 2, 3, 4].map((i) => (
         <motion.div
-          className="absolute inset-y-0 left-0 rounded-full"
+          key={i}
+          className="absolute rounded-full border"
           style={{
-            background: `linear-gradient(90deg, hsl(var(--primary)), hsl(var(--status-healthy)), hsl(var(--primary)))`,
+            width: 80 + i * 70,
+            height: 80 + i * 70,
+            borderColor: `hsl(var(--primary) / ${active ? 0.25 : 0.06})`,
           }}
-          initial={{ width: "0%" }}
-          animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.3, ease: "linear" }}
+          animate={
+            active
+              ? { scale: [1, 1.15, 1], opacity: [0.15, 0.4, 0.15] }
+              : { scale: 1, opacity: 0.08 }
+          }
+          transition={
+            active
+              ? { duration: 1.5, delay: i * 0.2, repeat: Infinity, ease: "easeInOut" }
+              : { duration: 0.5 }
+          }
         />
-        <motion.div
-          className="absolute inset-y-0 w-8 rounded-full"
-          style={{
-            background: "linear-gradient(90deg, transparent, hsl(var(--status-healthy) / 0.6), transparent)",
-            left: `${progress - 4}%`,
-          }}
-          animate={{ opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 0.8, repeat: Infinity }}
-        />
-      </div>
-
-      {/* Status text */}
-      <motion.p
-        className="text-center text-xs font-mono text-muted-foreground mt-4 tracking-widest uppercase"
-        animate={{ opacity: [0.5, 1, 0.5] }}
-        transition={{ duration: 1.5, repeat: Infinity }}
-      >
-        {progress < 25
-          ? "Initializing probes..."
-          : progress < 50
-          ? "Connecting to APIs..."
-          : progress < 75
-          ? "Measuring heartbeats..."
-          : progress < 100
-          ? "Syncing dashboards..."
-          : "Launching..."}
-      </motion.p>
+      ))}
     </div>
   );
 }
 
-export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
-  const [phase, setPhase] = useState<"idle" | "loading" | "done">("idle");
-  const [progress, setProgress] = useState(0);
+/* ── Scanning sweep line ── */
+function ScanSweep({ active }: { active: boolean }) {
+  if (!active) return null;
+  return (
+    <motion.div
+      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      animate={{ rotate: 360 }}
+      transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+    >
+      <div
+        className="absolute w-1/2 h-[2px] origin-left"
+        style={{
+          left: "50%",
+          top: "50%",
+          background: "linear-gradient(90deg, hsl(var(--primary) / 0.8), transparent)",
+        }}
+      />
+    </motion.div>
+  );
+}
 
-  const handleDoubleTap = useCallback(() => {
-    if (phase !== "idle") return;
-    setPhase("loading");
+/* ── Floating discovered nodes ── */
+const discoveredAPIs = [
+  { name: "Stripe", angle: 30, dist: 140, delay: 0.3 },
+  { name: "GitHub", angle: 95, dist: 170, delay: 0.6 },
+  { name: "OpenAI", angle: 160, dist: 130, delay: 0.9 },
+  { name: "AWS", angle: 230, dist: 155, delay: 1.2 },
+  { name: "Twilio", angle: 310, dist: 145, delay: 1.5 },
+];
 
-    // Simulate loading progress
-    let p = 0;
-    const interval = setInterval(() => {
-      p += Math.random() * 6 + 2;
-      if (p >= 100) {
-        p = 100;
-        clearInterval(interval);
-        setProgress(100);
-        setTimeout(() => {
-          setPhase("done");
-          setTimeout(onComplete, 800);
-        }, 400);
-        return;
-      }
-      setProgress(p);
-    }, 120);
-  }, [phase, onComplete]);
+function DiscoveredNode({ api, visible }: { api: typeof discoveredAPIs[0]; visible: boolean }) {
+  const x = Math.cos((api.angle * Math.PI) / 180) * api.dist;
+  const y = Math.sin((api.angle * Math.PI) / 180) * api.dist;
 
   return (
     <AnimatePresence>
-      {phase !== "done" || progress < 100 ? (
+      {visible && (
         <motion.div
-          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background"
-          exit={{ opacity: 0, scale: 1.05 }}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute flex items-center gap-1.5 glass-card px-3 py-1.5 rounded-full"
+          style={{ left: `calc(50% + ${x}px)`, top: `calc(50% + ${y}px)`, transform: "translate(-50%, -50%)" }}
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0 }}
+          transition={{ delay: api.delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         >
-          {/* Ambient orbs */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <motion.div
-              className="absolute w-[400px] h-[400px] rounded-full bg-destructive/10 -top-20 -left-20"
-              animate={{ scale: [1, 1.2, 1], opacity: [0.08, 0.15, 0.08] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              style={{ filter: "blur(100px)" }}
-            />
-            <motion.div
-              className="absolute w-[300px] h-[300px] rounded-full bg-primary/10 bottom-0 right-0"
-              animate={{ scale: [1, 1.15, 1], opacity: [0.06, 0.12, 0.06] }}
-              transition={{ duration: 5, delay: 1, repeat: Infinity, ease: "easeInOut" }}
-              style={{ filter: "blur(80px)" }}
-            />
-          </div>
+          <span className="w-1.5 h-1.5 rounded-full bg-status-healthy animate-pulse-soft" />
+          <span className="text-[10px] font-mono text-foreground/80">{api.name}</span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
 
-          {/* Dot grid */}
-          <div className="absolute inset-0 dot-grid opacity-40" />
+/* ── Power button ── */
+function PowerButton({
+  phase,
+  holdProgress,
+  onPointerDown,
+  onPointerUp,
+}: {
+  phase: "idle" | "holding" | "scanning" | "done";
+  holdProgress: number;
+  onPointerDown: () => void;
+  onPointerUp: () => void;
+}) {
+  const circumference = 2 * Math.PI * 52;
+  const strokeDashoffset = circumference - (holdProgress / 100) * circumference;
 
-          {/* Content */}
+  return (
+    <motion.div
+      className="relative cursor-pointer select-none"
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
+      whileTap={{ scale: 0.95 }}
+      animate={
+        phase === "scanning"
+          ? { scale: [1, 1.05, 1] }
+          : phase === "done"
+          ? { scale: [1, 1.5], opacity: [1, 0] }
+          : {}
+      }
+      transition={
+        phase === "scanning"
+          ? { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+          : phase === "done"
+          ? { duration: 0.8, ease: "easeIn" }
+          : {}
+      }
+    >
+      {/* Progress ring */}
+      <svg width="120" height="120" viewBox="0 0 120 120" className="absolute -inset-[10px]">
+        <circle
+          cx="60"
+          cy="60"
+          r="52"
+          fill="none"
+          stroke="hsl(var(--muted) / 0.3)"
+          strokeWidth="3"
+        />
+        <motion.circle
+          cx="60"
+          cy="60"
+          r="52"
+          fill="none"
+          stroke="hsl(var(--primary))"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          style={{ transform: "rotate(-90deg)", transformOrigin: "center", filter: "drop-shadow(0 0 6px hsl(var(--primary) / 0.5))" }}
+        />
+      </svg>
+
+      {/* Button body */}
+      <div
+        className="w-[100px] h-[100px] rounded-full flex items-center justify-center relative"
+        style={{
+          background: `radial-gradient(circle at 40% 35%, hsl(var(--card)), hsl(var(--background)))`,
+          boxShadow:
+            phase === "holding" || phase === "scanning"
+              ? `0 0 30px hsl(var(--primary) / 0.3), 0 0 60px hsl(var(--primary) / 0.15), inset 0 2px 4px hsl(var(--surface-glass-highlight))`
+              : `0 8px 32px hsl(225 14% 3% / 0.5), inset 0 2px 4px hsl(var(--surface-glass-highlight))`,
+          border: "1px solid hsl(var(--surface-glass-border))",
+          transition: "box-shadow 0.3s ease",
+        }}
+      >
+        {/* Power icon */}
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
+          <motion.path
+            d="M12 2v6"
+            stroke={phase === "idle" ? "hsl(var(--muted-foreground))" : "hsl(var(--primary))"}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            animate={
+              phase !== "idle"
+                ? { stroke: ["hsl(var(--primary))", "hsl(var(--status-healthy))", "hsl(var(--primary))"] }
+                : {}
+            }
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+          <motion.path
+            d="M16.24 7.76a6 6 0 1 1-8.49 0"
+            stroke={phase === "idle" ? "hsl(var(--muted-foreground))" : "hsl(var(--primary))"}
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            fill="none"
+            animate={
+              phase !== "idle"
+                ? { stroke: ["hsl(var(--primary))", "hsl(var(--status-healthy))", "hsl(var(--primary))"] }
+                : {}
+            }
+            transition={{ duration: 2, repeat: Infinity }}
+          />
+        </svg>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Boot log terminal ── */
+const bootMessages = [
+  { text: "> Initializing DevPulse core...", delay: 0 },
+  { text: "> Loading probe modules...", delay: 0.4 },
+  { text: "> Scanning API endpoints...", delay: 0.8 },
+  { text: "> Stripe .......... ONLINE", delay: 1.4, status: "ok" },
+  { text: "> GitHub .......... ONLINE", delay: 1.7, status: "ok" },
+  { text: "> OpenAI .......... DEGRADED", delay: 2.0, status: "warn" },
+  { text: "> AWS S3 .......... ONLINE", delay: 2.3, status: "ok" },
+  { text: "> Twilio .......... ONLINE", delay: 2.6, status: "ok" },
+  { text: "> All systems operational", delay: 3.2, status: "ok" },
+  { text: "> Launching dashboard...", delay: 3.8 },
+];
+
+function BootLog({ active }: { active: boolean }) {
+  const [visibleLines, setVisibleLines] = useState(0);
+
+  useEffect(() => {
+    if (!active) { setVisibleLines(0); return; }
+    const timers = bootMessages.map((msg, i) =>
+      setTimeout(() => setVisibleLines(i + 1), msg.delay * 1000)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [active]);
+
+  if (!active) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="w-80 md:w-96 glass-card rounded-xl p-4 font-mono text-xs overflow-hidden"
+      style={{ maxHeight: 240 }}
+    >
+      {bootMessages.slice(0, visibleLines).map((msg, i) => (
+        <motion.div
+          key={i}
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="mb-1 flex items-center gap-2"
+        >
+          <span
+            className={
+              msg.status === "ok"
+                ? "text-status-healthy"
+                : msg.status === "warn"
+                ? "text-status-degraded"
+                : "text-muted-foreground"
+            }
+          >
+            {msg.text}
+          </span>
+        </motion.div>
+      ))}
+      {visibleLines > 0 && visibleLines < bootMessages.length && (
+        <motion.span
+          className="inline-block w-2 h-3.5 bg-primary ml-1"
+          animate={{ opacity: [1, 0] }}
+          transition={{ duration: 0.6, repeat: Infinity }}
+        />
+      )}
+    </motion.div>
+  );
+}
+
+/* ── Main Splash ── */
+export default function SplashScreen({ onComplete }: { onComplete: () => void }) {
+  const [phase, setPhase] = useState<"idle" | "holding" | "scanning" | "done">("idle");
+  const [holdProgress, setHoldProgress] = useState(0);
+  const holdInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showNodes, setShowNodes] = useState(false);
+  const [showBoot, setShowBoot] = useState(false);
+
+  const startHold = useCallback(() => {
+    if (phase !== "idle") return;
+    setPhase("holding");
+    let p = 0;
+    holdInterval.current = setInterval(() => {
+      p += 2.5;
+      if (p >= 100) {
+        p = 100;
+        if (holdInterval.current) clearInterval(holdInterval.current);
+        setHoldProgress(100);
+        // Transition to scanning
+        setPhase("scanning");
+        setShowNodes(true);
+        setTimeout(() => {
+          setShowBoot(true);
+        }, 800);
+        setTimeout(() => {
+          setPhase("done");
+          setTimeout(onComplete, 800);
+        }, 4800);
+        return;
+      }
+      setHoldProgress(p);
+    }, 40);
+  }, [phase, onComplete]);
+
+  const stopHold = useCallback(() => {
+    if (phase !== "holding") return;
+    if (holdInterval.current) clearInterval(holdInterval.current);
+    setPhase("idle");
+    setHoldProgress(0);
+  }, [phase]);
+
+  return (
+    <AnimatePresence>
+      {phase !== "done" ? (
+        <motion.div
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background overflow-hidden"
+          exit={{ opacity: 0, scale: 1.1 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        >
+          {/* Background ambience */}
+          <div className="absolute inset-0 ambient-bg" />
+          <div className="absolute inset-0 dot-grid opacity-30" />
+          <div className="absolute inset-0 noise-overlay" />
+
+          {/* Radar rings */}
+          <RadarRings active={phase === "scanning"} />
+          <ScanSweep active={phase === "scanning"} />
+
+          {/* Discovered API nodes */}
+          {discoveredAPIs.map((api) => (
+            <DiscoveredNode key={api.name} api={api} visible={showNodes} />
+          ))}
+
+          {/* Center content */}
           <div className="relative z-10 flex flex-col items-center gap-8">
+            {/* Brand hint */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.8 }}
+              className="flex items-center gap-2 mb-4"
+            >
+              <span className="text-2xl font-serif font-bold text-foreground">Dev</span>
+              <span className="text-2xl font-serif font-bold text-primary text-glow-primary">Pulse</span>
+            </motion.div>
+
+            {/* Power button */}
+            <PowerButton
+              phase={phase}
+              holdProgress={holdProgress}
+              onPointerDown={startHold}
+              onPointerUp={stopHold}
+            />
+
+            {/* Instruction text */}
             {phase === "idle" && (
-              <>
-                <BeatingHeart phase={phase} onDoubleTap={handleDoubleTap} />
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.5, duration: 0.6 }}
-                  className="text-center"
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="text-center mt-4"
+              >
+                <motion.p
+                  className="text-sm font-mono text-muted-foreground tracking-widest uppercase"
+                  animate={{ opacity: [0.4, 1, 0.4] }}
+                  transition={{ duration: 2.5, repeat: Infinity }}
                 >
-                  <p className="text-sm text-muted-foreground font-mono tracking-wider mb-2">
-                    DOUBLE TAP THE HEART
-                  </p>
-                  <p className="text-xs text-muted-foreground/50 font-mono">
-                    to check the pulse
-                  </p>
-                </motion.div>
-
-                {/* Ripple rings */}
-                {[1, 2, 3].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute w-32 h-32 rounded-full border border-destructive/20"
-                    style={{ top: "50%", left: "50%", x: "-50%", y: "-80%" }}
-                    animate={{ scale: [1, 2.5 + i * 0.5], opacity: [0.3, 0] }}
-                    transition={{
-                      duration: 2.5,
-                      delay: i * 0.6,
-                      repeat: Infinity,
-                      ease: "easeOut",
-                    }}
-                  />
-                ))}
-              </>
+                  PRESS &amp; HOLD TO BOOT
+                </motion.p>
+                <p className="text-xs text-muted-foreground/40 font-mono mt-2">
+                  power up the monitoring system
+                </p>
+              </motion.div>
             )}
 
-            {phase === "loading" && (
-              <>
-                <BeatingHeart phase={phase} onDoubleTap={handleDoubleTap} />
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <PulseLoader progress={progress} />
-                </motion.div>
-              </>
+            {phase === "holding" && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-sm font-mono text-primary tracking-widest uppercase"
+              >
+                CHARGING... {Math.round(holdProgress)}%
+              </motion.p>
             )}
+
+            {/* Boot log */}
+            <BootLog active={showBoot} />
           </div>
         </motion.div>
       ) : null}
