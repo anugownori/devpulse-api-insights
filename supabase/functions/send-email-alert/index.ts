@@ -1,36 +1,67 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
-  );
-
   try {
-    const { user_id, alert_type, title, message, severity } = await req.json();
-    if (!user_id || !title) throw new Error("user_id and title required");
+    // Verify JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Get user email
-    const { data: userData } = await supabase.auth.admin.getUserById(user_id);
+    const anonClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userId = claimsData.claims.sub as string;
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      { auth: { persistSession: false } }
+    );
+
+    const { alert_type, title, message, severity } = await req.json();
+    if (!title) {
+      return new Response(JSON.stringify({ error: "title is required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get authenticated user's email securely
+    const { data: userData } = await supabase.auth.admin.getUserById(userId);
     const email = userData?.user?.email;
-    if (!email) throw new Error("User email not found");
+    if (!email) {
+      return new Response(JSON.stringify({ error: "User email not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Check if user has email webhooks configured
     const { data: webhooks } = await supabase
       .from("webhook_configs")
       .select("*")
-      .eq("user_id", user_id)
+      .eq("user_id", userId)
       .eq("webhook_type", "email")
       .eq("is_active", true);
 
@@ -40,25 +71,22 @@ serve(async (req) => {
       });
     }
 
-    // For email, we log the intent since we don't have an email service configured
-    // In production, integrate with Resend, SendGrid, or AWS SES
     await supabase.from("audit_log").insert({
-      user_id,
+      user_id: userId,
       action: "email_alert_queued",
       details: { alert_type, title, message, severity, email },
     });
 
     return new Response(JSON.stringify({
       sent: true,
-      email,
       note: "Email alert queued. Configure an email provider (Resend/SendGrid) for delivery.",
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+  } catch (err) {
+    console.error("Email alert error:", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 Deno.serve(async (req) => {
@@ -11,21 +11,59 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceKey);
+    // Verify JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const { agent_id, user_id, window_minutes = 5, repeat_threshold = 10 } = await req.json();
+    const anonClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
-    if (!agent_id || !user_id) {
-      return new Response(JSON.stringify({ error: "agent_id and user_id required" }), {
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userId = claimsData.claims.sub as string;
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { agent_id, window_minutes = 5, repeat_threshold = 10 } = await req.json();
+
+    if (!agent_id) {
+      return new Response(JSON.stringify({ error: "agent_id required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate agent ownership
+    const { data: agent } = await supabase
+      .from("agents")
+      .select("id")
+      .eq("id", agent_id)
+      .eq("user_id", userId)
+      .single();
+
+    if (!agent) {
+      return new Response(JSON.stringify({ error: "Agent not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const windowStart = new Date(Date.now() - window_minutes * 60 * 1000).toISOString();
 
-    // Get recent logs for this agent
     const { data: logs, error } = await supabase
       .from("agent_logs")
       .select("action_type, task_id, step_number, created_at")
@@ -36,7 +74,6 @@ Deno.serve(async (req) => {
 
     if (error) throw error;
 
-    // Detect repeated action patterns
     const actionCounts: Record<string, number> = {};
     for (const log of logs || []) {
       const key = `${log.action_type}:${log.task_id || "no-task"}`;
@@ -48,18 +85,15 @@ Deno.serve(async (req) => {
       .map(([key, count]) => ({ action: key, repetitions: count }));
 
     if (loops.length > 0) {
-      // Pause the agent
       await supabase.from("agents").update({ status: "paused" }).eq("id", agent_id);
 
-      // Mark logs as loop detected
       await supabase.from("agent_logs")
         .update({ is_loop_detected: true })
         .eq("agent_id", agent_id)
         .gte("created_at", windowStart);
 
-      // Create alert
       await supabase.from("alerts").insert({
-        user_id,
+        user_id: userId,
         agent_id,
         alert_type: "loop_detected",
         severity: "critical",
@@ -68,18 +102,15 @@ Deno.serve(async (req) => {
         metadata: { loops, window_minutes },
       });
 
-      // Audit log
       await supabase.from("audit_log").insert({
-        user_id,
+        user_id: userId,
         agent_id,
         action: "loop_detected_auto_pause",
         details: { loops, window_minutes },
       });
 
       return new Response(JSON.stringify({
-        loop_detected: true,
-        loops,
-        action_taken: "agent_paused",
+        loop_detected: true, loops, action_taken: "agent_paused",
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -89,7 +120,8 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error("Loop detection error:", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
