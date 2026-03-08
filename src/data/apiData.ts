@@ -47,7 +47,7 @@ export const APIs: APIInfo[] = [
   { id: 'duckduckgo', name: 'DuckDuckGo', category: 'Search', description: 'Instant answers API', requiresKey: false, testUrl: 'https://api.duckduckgo.com/?q=test&format=json' },
 
   // === NEW from PDF ===
-  { id: 'fakestore', name: 'Fake Store', category: 'E-Commerce', description: 'Mock e-commerce products, carts & users', requiresKey: false, testUrl: 'https://fakestoreapi.com/products/1' },
+  { id: 'fakestore', name: 'Fake Store', category: 'E Commerce', description: 'Mock e commerce products, carts & users', requiresKey: false, testUrl: 'https://fakestoreapi.com/products/1' },
   { id: 'dogapi', name: 'The Dog API', category: 'Animals', description: 'Dog breeds, images & traits', requiresKey: true, testUrl: 'https://api.thedogapi.com/v1/breeds?limit=1' },
   { id: 'rawg', name: 'RAWG Games', category: 'Gaming', description: 'Video game database', requiresKey: true, testUrl: 'https://api.rawg.io/api/games?key=KEY&page_size=1' },
   { id: 'opentriviadb', name: 'Open Trivia DB', category: 'Entertainment', description: 'Trivia questions by category/difficulty', requiresKey: false, testUrl: 'https://opentdb.com/api.php?amount=1' },
