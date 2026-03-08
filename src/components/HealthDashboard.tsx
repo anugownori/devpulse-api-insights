@@ -379,7 +379,7 @@ export default function HealthDashboard() {
                 </span>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setShowTrends(!showTrends)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -390,6 +390,16 @@ export default function HealthDashboard() {
               >
                 <TrendingUp className="w-4 h-4" />
                 Trends
+              </button>
+              <button
+                onClick={() => setShowRegistryManager(true)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card text-sm font-medium text-muted-foreground hover:text-foreground transition-all"
+              >
+                <Settings2 className="w-4 h-4" />
+                Manage APIs
+                <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs flex items-center justify-center font-mono">
+                  {activeApis.length}
+                </span>
               </button>
               <button
                 onClick={() => setShowKeyManager(true)}
@@ -406,7 +416,7 @@ export default function HealthDashboard() {
             </div>
           </div>
           <p className="text-muted-foreground text-lg max-w-2xl font-light">
-            Live health probing across {APIs.length} public APIs. All data is real, probed every 30 seconds from your browser.
+            Live health probing across {activeApis.length} APIs. All data is real, probed every 30 seconds from your browser.
             {probeCount > 0 && (
               <span className="text-primary/70 font-mono text-sm ml-2">({probeCount} probes)</span>
             )}
