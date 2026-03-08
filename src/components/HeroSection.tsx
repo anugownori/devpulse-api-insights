@@ -11,7 +11,7 @@ const features = [
   { icon: Code2, label: "Code Gen" },
   { icon: Search, label: "Doc Search" },
   { icon: Shield, label: "Rate Limits" },
-  { icon: Zap, label: "Real-time" },
+  { icon: Zap, label: "Real time" },
 ];
 
 const AmbientOrb = memo(({ delay, className }: { delay: number; className: string }) => (
