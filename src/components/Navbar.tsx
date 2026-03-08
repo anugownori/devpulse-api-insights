@@ -7,6 +7,7 @@ const links = [
   { label: "Compatibility", href: "#compatibility" },
   { label: "Code Gen", href: "#codegen" },
   { label: "Doc Search", href: "#docs" },
+  { label: "AgentGuard", href: "/agentguard" },
 ];
 
 export default function Navbar() {
