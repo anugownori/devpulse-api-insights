@@ -79,7 +79,7 @@ export default function HeroSection() {
         </motion.div>
 
         {/* SEO h1 - visually hidden */}
-        <h1 className="sr-only">DevPulse - Real-time API Health Monitor</h1>
+        <h1 className="sr-only">DevPulse Real time API Health Monitor</h1>
 
         {/* 3D Title Animation: "Dev" morphs into robot, walks to "Pulse", wraps band, shows ECG */}
         <motion.div
