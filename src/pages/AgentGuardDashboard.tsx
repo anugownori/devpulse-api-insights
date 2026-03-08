@@ -200,14 +200,10 @@ export default function AgentGuardDashboard() {
               <BookOpen className="w-4 h-4" />
               <span className="hidden sm:inline">SDK Docs</span>
             </button>
-            <div className="relative">
-              <Bell className="w-5 h-5 text-muted-foreground" />
-              {unreadAlerts > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-status-down text-[10px] text-foreground flex items-center justify-center font-mono">
-                  {unreadAlerts}
-                </span>
-              )}
-            </div>
+            <button onClick={() => navigate("/agentguard/settings")} className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Settings
+            </button>
+            <NotificationCenter alerts={alerts} onRefresh={fetchData} />
             <span className="text-sm text-muted-foreground font-mono hidden sm:inline">{user?.email}</span>
             <button onClick={signOut} className="text-muted-foreground hover:text-foreground transition-colors">
               <LogOut className="w-4 h-4" />
