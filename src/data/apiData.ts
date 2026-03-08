@@ -151,9 +151,10 @@ async function probeSingleApi(api: APIInfo, userApiKeys: Record<string, string> 
 /**
  * Probe all APIs in parallel and return real metrics
  */
-export async function probeAllApis(userApiKeys: Record<string, string> = {}): Promise<APIHealthMetrics[]> {
+export async function probeAllApis(userApiKeys: Record<string, string> = {}, apiList?: APIInfo[]): Promise<APIHealthMetrics[]> {
+  const apisToProbe = apiList || APIs;
   const results = await Promise.allSettled(
-    APIs.map(api => probeSingleApi(api, userApiKeys))
+    apisToProbe.map(api => probeSingleApi(api, userApiKeys))
   );
 
   return results.map((result, i) => {
@@ -161,8 +162,8 @@ export async function probeAllApis(userApiKeys: Record<string, string> = {}): Pr
       return result.value;
     }
     return {
-      apiId: APIs[i].id,
-      apiName: APIs[i].name,
+      apiId: apisToProbe[i].id,
+      apiName: apisToProbe[i].name,
       status: 'down' as HealthStatus,
       latencyMs: 0,
       statusCode: 0,
