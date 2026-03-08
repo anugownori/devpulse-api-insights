@@ -231,11 +231,17 @@ export default function HealthDashboard() {
     return map;
   }, [apiKeys]);
 
+  // Compute active API list (built-in + custom, minus disabled)
+  const activeApis = useMemo<APIInfo[]>(() => {
+    const all: APIInfo[] = [...APIs, ...customApis];
+    return all.filter(a => !disabledApiIds.has(a.id));
+  }, [customApis, disabledApiIds]);
+
   const runProbe = useCallback(async () => {
     setIsProbing(true);
     try {
       const keyMap = getUserKeyMap();
-      const results = await probeAllApis(keyMap);
+      const results = await probeAllApis(keyMap, activeApis);
 
       const updatedResults = results.map(m => {
         const history = uptimeHistoryRef.current[m.apiId] || [];
@@ -261,10 +267,10 @@ export default function HealthDashboard() {
       trendDataRef.current = updated;
       setTrendData({ ...updated });
 
-      // Capture response previews during probe (no duplicate fetch)
+      // Capture response previews
       const previews: Record<string, any> = {};
       await Promise.allSettled(
-        APIs.slice(0, 8).map(async (api) => {
+        activeApis.slice(0, 8).map(async (api) => {
           try {
             let url = api.testUrl;
             if (api.requiresKey && keyMap[api.id]) {
@@ -301,7 +307,7 @@ export default function HealthDashboard() {
     } finally {
       setIsProbing(false);
     }
-  }, [getUserKeyMap, setMetrics, setProbeCount, setIsProbing]);
+  }, [getUserKeyMap, activeApis, setMetrics, setProbeCount, setIsProbing]);
 
   useEffect(() => {
     runProbe();
