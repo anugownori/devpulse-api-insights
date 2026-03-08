@@ -1,28 +1,52 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { user_id, alert_type, title, message, severity } = await req.json();
+    // Verify JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const anonClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
 
-    // Fetch active webhooks for this user that match the event
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userId = claimsData.claims.sub as string;
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { alert_type, title, message, severity } = await req.json();
+
+    // Only fetch webhooks belonging to the authenticated user
     const { data: webhooks } = await supabase
       .from("webhook_configs")
       .select("*")
-      .eq("user_id", user_id)
+      .eq("user_id", userId)
       .eq("is_active", true);
 
     if (!webhooks || webhooks.length === 0) {
@@ -33,7 +57,6 @@ serve(async (req) => {
 
     let sent = 0;
     for (const wh of webhooks) {
-      // Check if webhook is subscribed to this event
       if (!wh.events.includes(alert_type)) continue;
 
       let payload: Record<string, unknown>;
@@ -47,7 +70,6 @@ serve(async (req) => {
           content: `🛡️ **AgentGuard Alert** [${severity?.toUpperCase()}]\n**${title}**\n${message}`,
         };
       } else {
-        // Generic webhook (email services like Zapier/IFTTT)
         payload = { alert_type, title, message, severity, timestamp: new Date().toISOString() };
       }
 
@@ -66,11 +88,10 @@ serve(async (req) => {
     return new Response(JSON.stringify({ sent }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
-    console.error("Webhook send error:", error);
-    return new Response(JSON.stringify({ error: "Failed to send webhooks" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  } catch (err) {
+    console.error("Webhook send error:", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

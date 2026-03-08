@@ -1,36 +1,66 @@
-import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
-  );
-
   try {
-    const { agent_id, user_id } = await req.json();
-    if (!agent_id || !user_id) throw new Error("agent_id and user_id required");
+    // Verify JWT
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Get agent config
+    const anonClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const userId = claimsData.claims.sub as string;
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { agent_id } = await req.json();
+    if (!agent_id) {
+      return new Response(JSON.stringify({ error: "agent_id required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Validate agent ownership
     const { data: agent } = await supabase
       .from("agents")
       .select("max_api_calls_per_min, max_cost_per_task, max_reasoning_steps, status, name")
       .eq("id", agent_id)
+      .eq("user_id", userId)
       .single();
 
-    if (!agent) throw new Error("Agent not found");
+    if (!agent) {
+      return new Response(JSON.stringify({ error: "Agent not found" }), {
+        status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Count API calls in last minute
     const oneMinAgo = new Date(Date.now() - 60000).toISOString();
     const { count: recentCalls } = await supabase
       .from("agent_logs")
@@ -44,7 +74,6 @@ serve(async (req) => {
       violations.push(`Rate limit exceeded: ${recentCalls}/${agent.max_api_calls_per_min} calls/min`);
     }
 
-    // Check current task cost
     const { data: taskLogs } = await supabase
       .from("agent_logs")
       .select("cost, step_number")
@@ -65,13 +94,11 @@ serve(async (req) => {
     }
 
     if (violations.length > 0) {
-      // Pause agent
       await supabase.from("agents").update({ status: "paused" }).eq("id", agent_id);
 
-      // Create alerts
       for (const v of violations) {
         await supabase.from("alerts").insert({
-          user_id,
+          user_id: userId,
           agent_id,
           alert_type: "rate_limit",
           severity: "critical",
@@ -81,7 +108,7 @@ serve(async (req) => {
       }
 
       await supabase.from("audit_log").insert({
-        user_id,
+        user_id: userId,
         agent_id,
         action: "rate_limit_enforced",
         details: { violations },
@@ -94,10 +121,10 @@ serve(async (req) => {
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+  } catch (err) {
+    console.error("Rate limiter error:", err);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
