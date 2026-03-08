@@ -297,7 +297,7 @@ export default function AgentGuardDashboard() {
                     return (
                       <motion.div key={agent.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                         className="glass-card-hover rounded-xl p-5 border border-border cursor-pointer group"
-                        onClick={() => setSelectedAgent(agent.id === selectedAgent ? null : agent.id)}>
+                        onClick={() => navigate(`/agentguard/agent/${agent.id}`)}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className={`w-2.5 h-2.5 rounded-full ${sc.dot} ${agent.status === "active" ? "animate-pulse-soft" : ""}`} />
