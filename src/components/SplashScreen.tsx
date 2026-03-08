@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const PULSE_POINTS = 60;
@@ -26,19 +26,23 @@ function generateECGPath() {
 const ecgPath = generateECGPath();
 
 function BeatingHeart({ phase, onDoubleTap }: { phase: "idle" | "loading" | "done"; onDoubleTap: () => void }) {
+  const lastTapRef = useRef(0);
+
+  const handleTap = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 500) {
+      onDoubleTap();
+      lastTapRef.current = 0;
+    } else {
+      lastTapRef.current = now;
+    }
+  }, [onDoubleTap]);
+
   return (
     <motion.div
       className="cursor-pointer select-none"
-      onDoubleClick={onDoubleTap}
-      onTouchEnd={(e) => {
-        // Handle double tap on mobile
-        const now = Date.now();
-        const lastTap = (e.currentTarget as any)._lastTap || 0;
-        if (now - lastTap < 400) {
-          onDoubleTap();
-        }
-        (e.currentTarget as any)._lastTap = now;
-      }}
+      onClick={handleTap}
+      whileTap={{ scale: 0.9 }}
       animate={
         phase === "idle"
           ? { scale: [1, 1.08, 1, 1.12, 1] }
