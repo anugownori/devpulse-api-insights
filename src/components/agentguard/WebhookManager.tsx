@@ -1,8 +1,27 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Webhook, Plus, Trash2, ToggleLeft, ToggleRight, Loader2, Globe, MessageSquare, Mail } from "lucide-react";
+import { Webhook, Plus, Trash2, ToggleLeft, ToggleRight, Loader2, Globe, MessageSquare, Mail, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+const PRIVATE_IP_PATTERNS = [/^127\./, /^10\./, /^172\.(1[6-9]|2[0-9]|3[0-1])\./, /^192\.168\./, /^169\.254\./, /^localhost$/i, /^.*\.local$/i, /^::1$/];
+
+const validateWebhookUrl = (url: string): { valid: boolean; reason?: string } => {
+  try {
+    const parsed = new URL(url);
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return { valid: false, reason: "Only HTTP/HTTPS allowed" };
+    }
+    for (const pattern of PRIVATE_IP_PATTERNS) {
+      if (pattern.test(parsed.hostname)) {
+        return { valid: false, reason: "Private IPs not allowed" };
+      }
+    }
+    return { valid: true };
+  } catch {
+    return { valid: false, reason: "Invalid URL format" };
+  }
+};
 
 type WebhookConfig = {
   id: string;
@@ -43,6 +62,7 @@ export default function WebhookManager({ userId }: Props) {
   const [type, setType] = useState("slack");
   const [selectedEvents, setSelectedEvents] = useState<string[]>(["cost_limit", "key_leak"]);
   const [saving, setSaving] = useState(false);
+  const [urlValidation, setUrlValidation] = useState<{ valid: boolean; reason?: string } | null>(null);
 
   useEffect(() => {
     fetchWebhooks();
@@ -60,6 +80,17 @@ export default function WebhookManager({ userId }: Props) {
 
   const handleAdd = async () => {
     if (!name || !url) return;
+    
+    const urlValidation = validateWebhookUrl(url);
+    if (!urlValidation.valid) {
+      toast({ 
+        title: "Invalid URL", 
+        description: urlValidation.reason, 
+        variant: "destructive" 
+      });
+      return;
+    }
+
     setSaving(true);
     const { error } = await supabase.from("webhook_configs").insert({
       user_id: userId,
@@ -142,10 +173,24 @@ export default function WebhookManager({ userId }: Props) {
                 <label className="text-xs text-muted-foreground mb-1 block">Webhook URL</label>
                 <input
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    if (e.target.value) {
+                      setUrlValidation(validateWebhookUrl(e.target.value));
+                    } else {
+                      setUrlValidation(null);
+                    }
+                  }}
                   placeholder="https://hooks.slack.com/services/..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-muted/30 border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className={`w-full px-4 py-2.5 rounded-xl bg-muted/30 border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 ${
+                    urlValidation === null ? 'border-border' : urlValidation.valid ? 'border-status-healthy' : 'border-destructive'
+                  }`}
                 />
+                {urlValidation && !urlValidation.valid && (
+                  <p className="flex items-center gap-1 text-xs text-destructive mt-1">
+                    <AlertTriangle className="w-3 h-3" /> {urlValidation.reason}
+                  </p>
+                )}
               </div>
             </div>
 

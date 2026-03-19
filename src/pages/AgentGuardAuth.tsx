@@ -54,11 +54,15 @@ export default function AgentGuardAuth() {
   const handleGoogleLogin = async () => {
     setOauthLoading(true);
     try {
+      const state = crypto.randomUUID();
+      sessionStorage.setItem("oauth_google_state", state);
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           redirectTo: `${window.location.origin}/agentguard`,
           skipBrowserRedirect: false,
+          queryParams: { state },
         },
       });
       if (error) throw error;
@@ -71,11 +75,15 @@ export default function AgentGuardAuth() {
   const handleGithubLogin = async () => {
     setOauthLoading(true);
     try {
+      const state = crypto.randomUUID();
+      sessionStorage.setItem("oauth_github_state", state);
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "github",
         options: {
           redirectTo: `${window.location.origin}/agentguard`,
           skipBrowserRedirect: false,
+          queryParams: { state },
         },
       });
       if (error) throw error;
