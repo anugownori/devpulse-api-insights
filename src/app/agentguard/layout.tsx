@@ -10,16 +10,16 @@ export default function AgentGuardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, authLoading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!loading && !user) {
       router.push("/agentguard/auth");
     }
-  }, [authLoading, user, router]);
+  }, [loading, user, router]);
 
-  if (authLoading) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
