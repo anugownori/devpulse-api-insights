@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useRef } from "react";
 
 export function useAnimatedCounter(target: number, duration = 800): number {

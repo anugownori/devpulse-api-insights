@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, ExternalLink, BookOpen, FileText, Globe, Loader2 } from "lucide-react";

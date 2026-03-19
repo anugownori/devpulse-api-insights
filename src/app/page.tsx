@@ -4,9 +4,9 @@ import HealthDashboard from "@/components/HealthDashboard";
 import Footer from "@/components/Footer";
 import dynamic from "next/dynamic";
 
-const CompatibilityGraph = dynamic(() => import("@/components/CompatibilityGraph"), { ssr: false, loading: () => <SectionFallback /> });
-const CodeGenerator = dynamic(() => import("@/components/CodeGenerator"), { ssr: false, loading: () => <SectionFallback /> });
-const DocSearch = dynamic(() => import("@/components/DocSearch"), { ssr: false, loading: () => <SectionFallback /> });
+const CompatibilityGraph = dynamic(() => import("@/components/CompatibilityGraph"), { loading: () => <SectionFallback /> });
+const CodeGenerator = dynamic(() => import("@/components/CodeGenerator"), { loading: () => <SectionFallback /> });
+const DocSearch = dynamic(() => import("@/components/DocSearch"), { loading: () => <SectionFallback /> });
 
 function SectionFallback() {
   return (

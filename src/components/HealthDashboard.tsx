@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useCallback, useRef, useMemo, memo, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp, Loader2, Eye, ChevronDown, Settings2 } from "lucide-react";
