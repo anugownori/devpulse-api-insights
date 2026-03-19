@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ExternalLink, BookOpen, FileText, Globe, Loader2 } from "lucide-react";
+import { Search, ExternalLink, BookOpen, FileText, Globe, Loader2, Zap } from "lucide-react";
 
 interface DocResult {
   source: string;
@@ -12,7 +12,285 @@ interface DocResult {
   icon: typeof BookOpen;
 }
 
+const API_SERVICE_MAP: Record<string, { name: string; docUrl: string; description: string }> = {
+  "openai": {
+    name: "OpenAI API",
+    docUrl: "https://platform.openai.com/docs/api-reference",
+    description: "Access OpenAI's language models, image generation, embeddings, and more"
+  },
+  "chatgpt": {
+    name: "ChatGPT",
+    docUrl: "https://platform.openai.com/docs/guides/gpt",
+    description: "Build applications with GPT models powered by OpenAI"
+  },
+  "gpt": {
+    name: "GPT Models",
+    docUrl: "https://platform.openai.com/docs/models/gpt-4o",
+    description: "Explore OpenAI's GPT-4 and GPT-4o models"
+  },
+  "claude": {
+    name: "Claude API",
+    docUrl: "https://docs.anthropic.com/en/api",
+    description: "Anthropic's Claude models for safe and beneficial AI"
+  },
+  "anthropic": {
+    name: "Anthropic",
+    docUrl: "https://docs.anthropic.com/en/api",
+    description: "Official Anthropic API documentation"
+  },
+  "google cloud": {
+    name: "Google Cloud",
+    docUrl: "https://cloud.google.com/apis",
+    description: "APIs for Google Cloud services"
+  },
+  "google api": {
+    name: "Google APIs",
+    docUrl: "https://developers.google.com/apis-explorer",
+    description: "Explore all Google APIs"
+  },
+  "aws": {
+    name: "AWS",
+    docUrl: "https://docs.aws.amazon.com/api-gateway/",
+    description: "Amazon Web Services API Gateway and services"
+  },
+  "amazon": {
+    name: "Amazon API",
+    docUrl: "https://developer.amazon.com/docs",
+    description: "Amazon developer APIs"
+  },
+  "azure": {
+    name: "Microsoft Azure",
+    docUrl: "https://learn.microsoft.com/en-us/azure/applied-ai-services/",
+    description: "Azure AI and cloud APIs"
+  },
+  "microsoft": {
+    name: "Microsoft APIs",
+    docUrl: "https://learn.microsoft.com/en-us/azure/applied-ai-services/",
+    description: "Microsoft Azure and AI APIs"
+  },
+  "gemini": {
+    name: "Google Gemini API",
+    docUrl: "https://ai.google.dev/docs",
+    description: "Google's Gemini AI model API"
+  },
+  "mistral": {
+    name: "Mistral AI",
+    docUrl: "https://docs.mistral.ai/",
+    description: "Mistral AI's open and commercial models"
+  },
+  "groq": {
+    name: "Groq API",
+    docUrl: "https://console.groq.com/docs",
+    description: "Fast inference API with LLaMA and Mixtral models"
+  },
+  "huggingface": {
+    name: "Hugging Face",
+    docUrl: "https://huggingface.co/docs",
+    description: "Transformers, datasets, and model hub"
+  },
+  "cohere": {
+    name: "Cohere API",
+    docUrl: "https://docs.cohere.com/",
+    description: "Enterprise AI platform with Command and Embed models"
+  },
+  "replicate": {
+    name: "Replicate",
+    docUrl: "https://replicate.com/docs",
+    description: "Run open-source models via API"
+  },
+  "cloudflare": {
+    name: "Cloudflare API",
+    docUrl: "https://developers.cloudflare.com/api/",
+    description: "Cloudflare's developer API"
+  },
+  "stripe": {
+    name: "Stripe API",
+    docUrl: "https://stripe.com/docs/api",
+    description: "Payment processing and financial APIs"
+  },
+  "twilio": {
+    name: "Twilio API",
+    docUrl: "https://www.twilio.com/docs/usage/api",
+    description: "Communications APIs for SMS, voice, and more"
+  },
+  "sendgrid": {
+    name: "SendGrid API",
+    docUrl: "https://docs.sendgrid.com/api-reference",
+    description: "Email delivery and marketing APIs"
+  },
+  "firebase": {
+    name: "Firebase",
+    docUrl: "https://firebase.google.com/docs/reference",
+    description: "Google's app development platform"
+  },
+  "supabase": {
+    name: "Supabase",
+    docUrl: "https://supabase.com/docs",
+    description: "Open source Firebase alternative with Postgres"
+  },
+  "prisma": {
+    name: "Prisma",
+    docUrl: "https://www.prisma.io/docs",
+    description: "Next-generation ORM for Node.js and TypeScript"
+  },
+  "openapi": {
+    name: "OpenAPI Specification",
+    docUrl: "https://swagger.io/specification/",
+    description: "Standard for designing REST APIs"
+  },
+  "rest api": {
+    name: "REST API",
+    docUrl: "https://restfulapi.net/",
+    description: "Best practices for REST API design"
+  },
+  "graphql": {
+    name: "GraphQL",
+    docUrl: "https://graphql.org/learn/",
+    description: "Query language for APIs"
+  },
+  "weatherapi": {
+    name: "WeatherAPI",
+    docUrl: "https://www.weatherapi.com/docs/",
+    description: "Weather forecasting API"
+  },
+  "openweathermap": {
+    name: "OpenWeatherMap",
+    docUrl: "https://openweathermap.org/api",
+    description: "Weather data API"
+  },
+  "newsapi": {
+    name: "News API",
+    docUrl: "https://newsapi.org/docs",
+    description: "Breaking news headlines API"
+  },
+  "github api": {
+    name: "GitHub API",
+    docUrl: "https://docs.github.com/en/rest",
+    description: "GitHub's REST and GraphQL APIs"
+  },
+  "twitter api": {
+    name: "X/Twitter API",
+    docUrl: "https://developer.twitter.com/en/docs",
+    description: "X platform APIs"
+  },
+  "discord api": {
+    name: "Discord API",
+    docUrl: "https://discord.com/developers/docs",
+    description: "Build bots and integrations for Discord"
+  },
+  "spotify api": {
+    name: "Spotify Web API",
+    docUrl: "https://developer.spotify.com/documentation/web-api",
+    description: "Music and podcast data API"
+  },
+  "youtube api": {
+    name: "YouTube API",
+    docUrl: "https://developers.google.com/youtube/v3/docs",
+    description: "YouTube Data and Player APIs"
+  },
+  "maps api": {
+    name: "Maps APIs",
+    docUrl: "https://developers.google.com/maps",
+    description: "Google Maps Platform APIs"
+  },
+  "nasa api": {
+    name: "NASA Open APIs",
+    docUrl: "https://api.nasa.gov/",
+    description: "NASA's free public APIs"
+  },
+  "openlibrary api": {
+    name: "Open Library API",
+    docUrl: "https://openlibrary.org/developers/api",
+    description: "Open book data and metadata"
+  },
+  "tmdb": {
+    name: "TMDB API",
+    docUrl: "https://developer.themoviedb.org/docs",
+    description: "The Movie Database API"
+  },
+  "spoonacular": {
+    name: "Spoonacular API",
+    docUrl: "https://spoonacular.com/food-api/docs",
+    description: "Food and recipe API"
+  },
+  "api key": {
+    name: "API Keys Guide",
+    docUrl: "https://platform.openai.com/docs/api-keys",
+    description: "How to get and use API keys"
+  },
+  "api documentation": {
+    name: "API Documentation Guide",
+    docUrl: "https://swagger.io/tools/swagger-ui/",
+    description: "Build beautiful API documentation"
+  },
+  "spacex": {
+    name: "SpaceX API",
+    docUrl: "https://github.com/r-spacex/SpaceX-API",
+    description: "Launch data, rockets, and missions from SpaceX"
+  },
+  "nasa": {
+    name: "NASA Open APIs",
+    docUrl: "https://api.nasa.gov/",
+    description: "NASA's free public APIs for space data"
+  },
+  "earthquake": {
+    name: "USGS Earthquake API",
+    docUrl: "https://earthquake.usgs.gov/fdsnws/event/1/",
+    description: "Real-time earthquake data from USGS"
+  },
+  "weather": {
+    name: "Weather APIs",
+    docUrl: "https://open-meteo.com/en/docs",
+    description: "Free weather forecast API"
+  },
+  "openlibrary": {
+    name: "Open Library API",
+    docUrl: "https://openlibrary.org/developers/api",
+    description: "Free book data and metadata"
+  },
+  "usgs": {
+    name: "USGS APIs",
+    docUrl: "https://earthquake.usgs.gov/fdsnws/event/1/",
+    description: "Geoscience data from USGS"
+  },
+  "alphavantage": {
+    name: "Alpha Vantage API",
+    docUrl: "https://www.alphavantage.co/documentation/",
+    description: "Stock market and finance data"
+  },
+  "alphacast": {
+    name: "AlphaCast API",
+    docUrl: "https://documenter.getpostman.com/view/12384768/TzXqDR8k",
+    description: "Sports predictions API"
+  },
+  "omdb": {
+    name: "OMDb API",
+    docUrl: "https://www.omdbapi.com/",
+    description: "Movie and TV show database"
+  }
+};
+
+function findApiServiceMatch(query: string): DocResult | null {
+  const q = query.toLowerCase().trim();
+  for (const [key, service] of Object.entries(API_SERVICE_MAP)) {
+    if (q.includes(key) || key.includes(q)) {
+      return {
+        source: "Official Docs",
+        title: service.name,
+        snippet: service.description,
+        url: service.docUrl,
+        icon: Zap,
+      };
+    }
+  }
+  return null;
+}
+
 async function searchWikipedia(query: string): Promise<DocResult[]> {
+  const apiMatch = findApiServiceMatch(query);
+  if (apiMatch) {
+    return [apiMatch];
+  }
   try {
     const res = await fetch(
       `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`
@@ -130,7 +408,7 @@ export default function DocSearch() {
             </h2>
           </div>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto font-light">
-            Live documentation search across Wikipedia, Semantic Scholar, and DuckDuckGo — all real time.
+            Smart search: API services → official docs, everything else → Wikipedia, Semantic Scholar & DuckDuckGo.
           </p>
         </motion.div>
 
@@ -148,7 +426,7 @@ export default function DocSearch() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleSearch()}
-              placeholder="Search API docs... (try: air quality, earthquake, machine learning)"
+              placeholder="Search API docs... (try: OpenAI, AWS, ChatGPT, weather, machine learning)"
               className="flex-1 px-4 py-4 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-lg"
             />
             <button
@@ -161,8 +439,8 @@ export default function DocSearch() {
           </div>
 
           {/* Quick suggestions */}
-          <div className="flex gap-2 mt-4 justify-center">
-            {["air quality", "earthquake", "machine learning", "bitcoin"].map(s => (
+          <div className="flex gap-2 mt-4 justify-center flex-wrap">
+            {["OpenAI", "ChatGPT", "Claude", "AWS", "Gemini", "machine learning"].map(s => (
               <button
                 key={s}
                 onClick={() => { setQuery(s); }}
