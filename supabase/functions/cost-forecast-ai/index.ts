@@ -1,11 +1,19 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+const ALLOWED_ORIGINS = new Set([
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://devpluse.in",
+]);
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+const getCorsHeaders = (origin: string | null) => ({
+  "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin || "") ? origin! : "",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+});
 
-serve(async (req) => {
+Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -13,7 +21,6 @@ serve(async (req) => {
   try {
     const { historical_costs, dates, slope, predicted_14d_total } = await req.json();
 
-    // Lovable API removed. Only fallback summary is provided.
     const trendWord = slope > 0 ? "increasing" : slope < 0 ? "decreasing" : "stable";
     return new Response(
       JSON.stringify({
