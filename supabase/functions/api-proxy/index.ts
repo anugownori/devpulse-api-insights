@@ -1,9 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+const ALLOWED_ORIGINS = new Set([
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://devpluse.in",
+]);
+
+const getCorsHeaders = (origin: string | null) => ({
+  "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin || "") ? origin! : "",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
+});
 
 const ALLOWED_HOSTS = new Set([
   "api.openweathermap.org",
@@ -20,9 +28,41 @@ const ALLOWED_HOSTS = new Set([
   "api.coingecko.com",
 ]);
 
+const RATE_LIMIT_WINDOW = 60;
+const RATE_LIMIT_MAX = 100;
+const requestCounts = new Map<string, { count: number; resetAt: number }>();
+
+const checkRateLimit = (key: string): boolean => {
+  const now = Date.now();
+  const record = requestCounts.get(key);
+  
+  if (!record || record.resetAt < now) {
+    requestCounts.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW * 1000 });
+    return true;
+  }
+  
+  if (record.count >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+};
+
 Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+  const clientIp = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
+  
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  if (!checkRateLimit(clientIp)) {
+    return new Response(JSON.stringify({ error: "Too many requests. Please try again later." }), {
+      status: 429,
+      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(RATE_LIMIT_WINDOW) },
+    });
   }
 
   try {
@@ -60,7 +100,7 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    let apiKey = null;
+    let apiKey: string | null = null;
     if (apiKeyId) {
       const token = authHeader.replace("Bearer ", "");
       const { data: claimsData } = await supabase.auth.getClaims(token);

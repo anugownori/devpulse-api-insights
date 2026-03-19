@@ -1,9 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+const ALLOWED_ORIGINS = new Set([
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "https://devpluse.in",
+]);
+
+const getCorsHeaders = (origin: string | null) => ({
+  "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin || "") ? origin! : "",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+});
 
 const PRIVATE_IP_PATTERNS = [
   /^127\./,
@@ -47,12 +54,14 @@ const isValidWebhookUrl = (urlString: string): { valid: boolean; reason?: string
 };
 
 Deno.serve(async (req) => {
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify JWT
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -83,7 +92,6 @@ Deno.serve(async (req) => {
 
     const { alert_type, title, message, severity } = await req.json();
 
-    // Only fetch webhooks belonging to the authenticated user
     const { data: webhooks } = await supabase
       .from("webhook_configs")
       .select("*")

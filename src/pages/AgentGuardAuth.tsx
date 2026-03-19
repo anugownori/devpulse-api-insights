@@ -44,8 +44,9 @@ export default function AgentGuardAuth() {
         if (error) throw error;
         toast({ title: "Check your email", description: "We sent you a confirmation link." });
       }
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred";
+      toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -66,8 +67,9 @@ export default function AgentGuardAuth() {
         },
       });
       if (error) throw error;
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred";
+      toast({ title: "Error", description: message, variant: "destructive" });
       setOauthLoading(false);
     }
   };
@@ -87,8 +89,9 @@ export default function AgentGuardAuth() {
         },
       });
       if (error) throw error;
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An error occurred";
+      toast({ title: "Error", description: message, variant: "destructive" });
       setOauthLoading(false);
     }
   };
