@@ -15,7 +15,7 @@ export interface CustomAPI extends APIInfo {
 interface Props {
   builtInApis: APIInfo[];
   customApis: CustomAPI[];
-  disabledApiIds: Set<string>;
+  disabledApiIds: string[];
   onToggleApi: (id: string) => void;
   onRemoveCustomApi: (id: string) => void;
   onAddCustomApi: (api: CustomAPI) => void;
@@ -66,7 +66,7 @@ export default function ApiRegistryManager({
     );
   }, [customApis, search]);
 
-  const enabledCount = allApis.filter(a => !disabledApiIds.has(a.id)).length;
+  const enabledCount = allApis.filter(a => !disabledApiIds.includes(a.id)).length;
 
   const handleAdd = () => {
     if (!newName.trim() || !newTestUrl.trim()) return;
@@ -176,7 +176,7 @@ export default function ApiRegistryManager({
                     className="space-y-1.5 overflow-hidden"
                   >
                     {filteredBuiltIn.map(api => {
-                      const enabled = !disabledApiIds.has(api.id);
+                      const enabled = !disabledApiIds.includes(api.id);
                       return (
                         <div
                           key={api.id}
@@ -281,7 +281,7 @@ export default function ApiRegistryManager({
                                 onClick={() => onToggleApi(api.id)}
                                 className="shrink-0"
                               >
-                                {!disabledApiIds.has(api.id) ? (
+                                {!disabledApiIds.includes(api.id) ? (
                                   <ToggleRight className="w-5 h-5 text-primary" />
                                 ) : (
                                   <ToggleLeft className="w-5 h-5 text-muted-foreground" />

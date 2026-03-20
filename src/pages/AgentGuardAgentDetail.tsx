@@ -39,7 +39,8 @@ type LogEntry = {
 };
 
 export default function AgentGuardAgentDetail() {
-  const { agentId } = useParams<{ agentId: string }>();
+  const params = useParams<{ agentId: string }>();
+  const agentId = params?.agentId;
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const { toast } = useToast();

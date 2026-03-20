@@ -1,3 +1,5 @@
+"use client";
+
 import { memo, useMemo, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Activity, Zap, GitBranch, Code2, Search, Shield } from "lucide-react";

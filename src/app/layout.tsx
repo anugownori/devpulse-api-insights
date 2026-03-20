@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Toaster as AppToaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
+import Providers from "@/components/Providers";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -23,8 +23,6 @@ export const metadata: Metadata = {
   description: "Monitor and secure your AI agents with DEVPULSE",
 };
 
-const queryClient = new QueryClient();
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -34,7 +32,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${robotoMono.variable} font-sans antialiased`}>
         <ThemeProvider>
-          <QueryClientProvider client={queryClient}>
+          <Providers>
             <TooltipProvider>
               <ErrorBoundary>
                 <AppToaster />
@@ -42,7 +40,7 @@ export default function RootLayout({
                 {children}
               </ErrorBoundary>
             </TooltipProvider>
-          </QueryClientProvider>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>
