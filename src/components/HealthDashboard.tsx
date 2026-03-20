@@ -198,11 +198,11 @@ export default function HealthDashboard() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
-  const [disabledApiIds, setDisabledApiIds] = useState<Set<string>>(() => {
+  const [disabledApiIds, setDisabledApiIds] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem("devpulse_disabled_apis");
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-    } catch { return new Set(); }
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
   });
   const [showKeyManager, setShowKeyManager] = useState(false);
   const [showRegistryManager, setShowRegistryManager] = useState(false);
@@ -236,7 +236,7 @@ export default function HealthDashboard() {
   // Compute active API list (built-in + custom, minus disabled)
   const activeApis = useMemo<APIInfo[]>(() => {
     const all: APIInfo[] = [...APIs, ...customApis];
-    return all.filter(a => !disabledApiIds.has(a.id));
+    return all.filter(a => !disabledApiIds.includes(a.id));
   }, [customApis, disabledApiIds]);
 
   const runProbe = useCallback(async () => {
@@ -323,15 +323,17 @@ export default function HealthDashboard() {
   // Registry handlers
   const handleToggleApi = useCallback((id: string) => {
     setDisabledApiIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
+      if (prev.includes(id)) {
+        return prev.filter(item => item !== id);
+      } else {
+        return [...prev, id];
+      }
     });
   }, []);
   const handleAddCustomApi = useCallback((api: CustomAPI) => setCustomApis(prev => [...prev, api]), []);
   const handleRemoveCustomApi = useCallback((id: string) => {
     setCustomApis(prev => prev.filter(a => a.id !== id));
-    setDisabledApiIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+    setDisabledApiIds(prev => prev.filter(item => item !== id));
   }, []);
   const handleEditCustomApi = useCallback((api: CustomAPI) => {
     setCustomApis(prev => prev.map(a => a.id === api.id ? api : a));
