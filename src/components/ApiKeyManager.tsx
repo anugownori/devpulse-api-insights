@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Key, Plus, Trash2, Eye, EyeOff, X, Shield } from "lucide-react";
 
@@ -29,6 +29,11 @@ interface Props {
 
 export default function ApiKeyManager({ apiKeys, onAddKey, onRemoveKey, isOpen, onClose }: Props) {
   const [selectedApi, setSelectedApi] = useState(SUPPORTED_APIS[0].id);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => isOpen && e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
   const [keyValue, setKeyValue] = useState("");
   const [customName, setCustomName] = useState("");
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});

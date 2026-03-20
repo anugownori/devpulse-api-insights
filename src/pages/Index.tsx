@@ -1,7 +1,9 @@
 import { lazy, Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
+import AgentGuardHomeCard from "@/components/AgentGuardHomeCard";
 import HealthDashboard from "@/components/HealthDashboard";
+import PricingSection from "@/components/PricingSection";
 import Footer from "@/components/Footer";
 
 const CompatibilityGraph = lazy(() => import("@/components/CompatibilityGraph"));
@@ -20,6 +22,8 @@ const Index = () => {
       <Navbar />
       <HeroSection />
       <div className="divider-gradient" />
+      <AgentGuardHomeCard />
+      <div className="divider-gradient" />
       <HealthDashboard />
       <div className="divider-gradient" />
       <Suspense fallback={<SectionFallback />}>
@@ -33,6 +37,9 @@ const Index = () => {
       <Suspense fallback={<SectionFallback />}>
         <DocSearch />
       </Suspense>
+      <div className="divider-gradient" />
+      <PricingSection />
+      <div className="divider-gradient" />
       <Footer />
     </div>
   );

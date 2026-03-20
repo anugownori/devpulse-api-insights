@@ -1,7 +1,11 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { Radio, Pause, Play, Trash2 } from "lucide-react";
+import { Radio, Pause, Play, Trash2, WifiOff, RefreshCw } from "lucide-react";
+
+const MAX_LOG_ENTRIES = 100;
+const RECONNECT_DELAY_MS = 3000;
+const CHANNEL_NAME = "realtime-agent-logs";
 
 type LogEntry = {
   id: string;
@@ -19,34 +23,74 @@ type LogEntry = {
 export default function RealtimeMonitor() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [paused, setPaused] = useState(false);
+  const [connected, setConnected] = useState(true);
+  const [retryKey, setRetryKey] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
-  useEffect(() => {
+  const subscribe = useCallback(() => {
     const channel = supabase
-      .channel("realtime-agent-logs")
+      .channel(CHANNEL_NAME)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "agent_logs" },
         (payload) => {
-          if (!paused) {
-            setLogs(prev => [payload.new as LogEntry, ...prev].slice(0, 100));
+          if (!pausedRef.current) {
+            setLogs((prev) =>
+              [payload.new as LogEntry, ...prev].slice(0, MAX_LOG_ENTRIES)
+            );
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        setConnected(status === "SUBSCRIBED");
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          reconnectTimeoutRef.current = setTimeout(() => {
+            supabase.removeChannel(channel);
+            subscribe();
+          }, RECONNECT_DELAY_MS);
+        }
+      });
 
-    return () => { supabase.removeChannel(channel); };
-  }, [paused]);
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useEffect(() => {
+    return subscribe();
+  }, [subscribe, retryKey]);
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Radio className="w-4 h-4 text-status-healthy animate-pulse" />
+          <Radio className={`w-4 h-4 ${connected ? "text-status-healthy animate-pulse" : "text-muted-foreground"}`} />
           <h3 className="text-lg font-semibold font-serif text-foreground">Live Monitor</h3>
           <span className="text-xs font-mono text-muted-foreground">({logs.length} events)</span>
+          {!connected && (
+            <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-500">
+              <WifiOff className="w-3 h-3" />
+              Reconnecting...
+            </span>
+          )}
         </div>
         <div className="flex gap-2">
+          {!connected && (
+            <button
+              onClick={() => setRetryKey((k) => k + 1)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg glass-card text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Reconnect
+            </button>
+          )}
           <button
             onClick={() => setPaused(!paused)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg glass-card text-sm text-muted-foreground hover:text-foreground transition-colors"

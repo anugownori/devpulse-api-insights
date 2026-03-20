@@ -1,5 +1,3 @@
-"use client";
-
 import { memo, useMemo, lazy, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Activity, Zap, GitBranch, Code2, Search, Shield } from "lucide-react";
@@ -131,7 +129,7 @@ export default function HeroSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1, ease: [0.16, 1, 0.3, 1] }}
-          className="flex gap-4 justify-center"
+          className="flex flex-wrap gap-4 justify-center"
         >
           <a
             href="#dashboard"
@@ -147,6 +145,12 @@ export default function HeroSection() {
             className="px-8 py-4 rounded-xl glass-card-hover gradient-border text-foreground font-semibold text-lg"
           >
             Explore APIs
+          </a>
+          <a
+            href="#pricing"
+            className="px-8 py-4 rounded-xl glass-card-hover gradient-border text-foreground font-semibold text-lg"
+          >
+            View Pricing
           </a>
         </motion.div>
 

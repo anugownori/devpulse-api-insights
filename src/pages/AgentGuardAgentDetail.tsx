@@ -3,12 +3,13 @@ import { motion } from "framer-motion";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Shield, Bot, Save, Loader2, Activity, DollarSign,
-  Zap, Clock, Settings, BarChart3, ScrollText
+  Zap, Clock, Settings, BarChart3, ScrollText, Play, Wallet, AlertTriangle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import AgentReplay from "@/components/agentguard/AgentReplay";
 
 type Agent = {
   id: string;
@@ -19,6 +20,7 @@ type Agent = {
   max_cost_per_task: number | null;
   max_api_calls_per_min: number | null;
   max_reasoning_steps: number | null;
+  budget_amount: number | null;
   total_cost: number;
   total_api_calls: number;
   total_tasks: number;
@@ -33,13 +35,13 @@ type LogEntry = {
   cost: number | null;
   latency_ms: number | null;
   step_number: number;
+  task_id: string | null;
   is_loop_detected: boolean | null;
   created_at: string;
 };
 
 export default function AgentGuardAgentDetail() {
-  const params = useParams<{ agentId: string }>();
-  const agentId = params?.agentId;
+  const { agentId } = useParams<{ agentId: string }>();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -49,7 +51,13 @@ export default function AgentGuardAgentDetail() {
   const [costData, setCostData] = useState<{ date: string; cost: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "config" | "logs">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "config" | "logs" | "replay">("overview");
+
+  // Deep link: ?tab=replay opens Replay tab
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tab") === "replay") setActiveTab("replay");
+  }, []);
 
   // Editable config
   const [config, setConfig] = useState({
@@ -59,10 +67,11 @@ export default function AgentGuardAgentDetail() {
     max_cost_per_task: 2,
     max_api_calls_per_min: 50,
     max_reasoning_steps: 25,
+    budget_amount: null as number | null,
   });
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/agentguard/auth");
+    if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading]);
 
   useEffect(() => {
@@ -74,7 +83,7 @@ export default function AgentGuardAgentDetail() {
     setLoading(true);
     const [agentRes, logsRes, costsRes] = await Promise.all([
       supabase.from("agents").select("*").eq("id", agentId!).single(),
-      supabase.from("agent_logs").select("id, action_type, provider, model, cost, latency_ms, step_number, is_loop_detected, created_at")
+      supabase.from("agent_logs").select("id, action_type, provider, model, cost, latency_ms, step_number, task_id, is_loop_detected, created_at")
         .eq("agent_id", agentId!).order("created_at", { ascending: false }).limit(50),
       supabase.from("cost_entries").select("date, cost").eq("agent_id", agentId!).order("date", { ascending: true }).limit(30),
     ]);
@@ -89,6 +98,7 @@ export default function AgentGuardAgentDetail() {
         max_cost_per_task: a.max_cost_per_task ?? 2,
         max_api_calls_per_min: a.max_api_calls_per_min ?? 50,
         max_reasoning_steps: a.max_reasoning_steps ?? 25,
+        budget_amount: a.budget_amount ?? null,
       });
     }
     if (logsRes.data) setLogs(logsRes.data as LogEntry[]);
@@ -147,6 +157,7 @@ export default function AgentGuardAgentDetail() {
 
   const tabs = [
     { id: "overview" as const, label: "Overview", icon: BarChart3 },
+    { id: "replay" as const, label: "Replay", icon: Play },
     { id: "config" as const, label: "Configuration", icon: Settings },
     { id: "logs" as const, label: "Execution Logs", icon: ScrollText },
   ];
@@ -187,6 +198,38 @@ export default function AgentGuardAgentDetail() {
               <p className={`text-2xl font-bold font-mono ${s.color}`}>{s.value}</p>
             </div>
           ))}
+          {agent.budget_amount != null && (
+            <div className={`glass-card rounded-xl p-4 border col-span-2 md:col-span-1 ${
+              Number(agent.total_cost) >= (agent.budget_amount || 0) ? "border-status-down/50" : "border-border"
+            }`}>
+              <div className="flex items-center gap-2 mb-1">
+                <Wallet className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs text-muted-foreground">Budget</span>
+              </div>
+              <p className={`text-2xl font-bold font-mono ${Number(agent.total_cost) >= (agent.budget_amount || 0) ? "text-status-down" : "text-foreground"}`}>
+                ${Number(agent.total_cost).toFixed(2)} / ${agent.budget_amount}
+              </p>
+              <div className="mt-2 h-1.5 w-full rounded-full bg-muted/50 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    Number(agent.total_cost) >= (agent.budget_amount || 0) ? "bg-status-down" :
+                    (Number(agent.total_cost) / (agent.budget_amount || 1)) >= 0.8 ? "bg-status-degraded" : "bg-primary"
+                  }`}
+                  style={{ width: `${Math.min(100, (Number(agent.total_cost) / (agent.budget_amount || 1)) * 100)}%` }}
+                />
+              </div>
+              {Number(agent.total_cost) >= (agent.budget_amount || 0) && (
+                <p className="text-xs text-status-down flex items-center gap-1 mt-1">
+                  <AlertTriangle className="w-3 h-3" /> Budget exhausted — pause agent
+                </p>
+              )}
+              {(Number(agent.total_cost) / (agent.budget_amount || 1)) >= 0.8 && Number(agent.total_cost) < (agent.budget_amount || 0) && (
+                <p className="text-xs text-status-degraded flex items-center gap-1 mt-1">
+                  <AlertTriangle className="w-3 h-3" /> Approaching budget limit
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -307,6 +350,13 @@ export default function AgentGuardAgentDetail() {
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Configuration
             </button>
+          </motion.div>
+        )}
+
+        {/* Replay */}
+        {activeTab === "replay" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <AgentReplay logs={logs} agentName={agent.name} />
           </motion.div>
         )}
 

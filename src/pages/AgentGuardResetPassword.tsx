@@ -36,7 +36,7 @@ export default function AgentGuardResetPassword() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setSuccess(true);
-      setTimeout(() => navigate("/agentguard"), 2000);
+      setTimeout(() => navigate("/auth"), 2000);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {

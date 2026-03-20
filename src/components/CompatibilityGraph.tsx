@@ -2,17 +2,50 @@
 
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
-import { GitBranch, ArrowRight } from "lucide-react";
+import { GitBranch, ArrowRight, Zap } from "lucide-react";
 import { APIs, COMPATIBILITY_EDGES } from "@/data/apiData";
+import { useHealthStore } from "@/hooks/useHealthStore";
+
+/**
+ * Compute LIVE compatibility score from base score + current health of both APIs.
+ * Both healthy = full score, one degraded = -15%, one down = -40%.
+ */
+function computeLiveScore(
+  baseScore: number,
+  sourceStatus: string | undefined,
+  targetStatus: string | undefined
+): number {
+  const statusPenalty: Record<string, number> = {
+    healthy: 0,
+    degraded: 15,
+    down: 40,
+    unknown: 25,
+  };
+  const p1 = statusPenalty[sourceStatus || "unknown"] ?? 25;
+  const p2 = statusPenalty[targetStatus || "unknown"] ?? 25;
+  const penalty = Math.max(p1, p2);
+  return Math.round(Math.max(0, Math.min(100, baseScore - penalty)));
+}
 
 export default function CompatibilityGraph() {
   const [selectedApi, setSelectedApi] = useState<string | null>(null);
+  const { metrics } = useHealthStore();
+  const statusByApiId = useMemo(() => {
+    const map: Record<string, string> = {};
+    metrics.forEach(m => { map[m.apiId] = m.status; });
+    return map;
+  }, [metrics]);
 
   const connections = useMemo(() => {
-    if (!selectedApi) return COMPATIBILITY_EDGES.slice(0, 8);
-    return COMPATIBILITY_EDGES.filter(e => e.source === selectedApi || e.target === selectedApi)
-      .sort((a, b) => b.score - a.score);
-  }, [selectedApi]);
+    const base = !selectedApi ? COMPATIBILITY_EDGES.slice(0, 12) : COMPATIBILITY_EDGES.filter(e => e.source === selectedApi || e.target === selectedApi);
+    return base
+      .map(e => ({
+        ...e,
+        liveScore: computeLiveScore(e.score, statusByApiId[e.source], statusByApiId[e.target]),
+      }))
+      .sort((a, b) => b.liveScore - a.liveScore)
+      .slice(0, 12);
+  }, [selectedApi, statusByApiId]);
 
   const scoreColor = (score: number) => {
     if (score >= 80) return "text-status-healthy";
@@ -51,8 +84,13 @@ export default function CompatibilityGraph() {
               Compatibility <span className="text-secondary">Graph</span>
             </h2>
           </div>
-          <p className="text-muted-foreground text-lg max-w-2xl font-light">
-            Discover which APIs work best together. Select an API to see its compatibility scores.
+          <p className="text-muted-foreground text-lg max-w-2xl font-light flex items-center gap-2">
+            Live compatibility scores based on current API health. Select an API to see its best pairings.
+            {metrics.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs text-primary/80 font-mono">
+                <Zap className="w-3 h-3" /> Live
+              </span>
+            )}
           </p>
         </motion.div>
 
@@ -95,23 +133,23 @@ export default function CompatibilityGraph() {
                 transition={{ delay: i * 0.05 }}
                 className="card-3d"
               >
-                <div className={`card-3d-inner glass-card-hover rounded-xl p-5 border ${scoreBorderColor(edge.score)}`}>
+                <div className={`card-3d-inner glass-card-hover rounded-xl p-5 border ${scoreBorderColor(edge.liveScore)}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-semibold text-foreground">{sourceApi?.name}</span>
                       <ArrowRight className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm font-semibold text-foreground">{targetApi?.name}</span>
                     </div>
-                    <span className={`text-2xl font-bold font-mono ${scoreColor(edge.score)}`}>
-                      {edge.score}
+                    <span className={`text-2xl font-bold font-mono ${scoreColor(edge.liveScore)}`}>
+                      {edge.liveScore}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground">{edge.reason}</p>
                   <div className="mt-3 w-full h-1.5 rounded-full bg-muted/20">
                     <motion.div
-                      className={`h-full rounded-full ${scoreBarColor(edge.score)}`}
+                      className={`h-full rounded-full ${scoreBarColor(edge.liveScore)}`}
                       initial={{ width: 0 }}
-                      whileInView={{ width: `${edge.score}%` }}
+                      whileInView={{ width: `${edge.liveScore}%` }}
                       viewport={{ once: true }}
                       transition={{ duration: 0.8, delay: i * 0.05 }}
                     />

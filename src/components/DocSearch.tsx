@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ExternalLink, BookOpen, Globe, Loader2, Zap, Code } from "lucide-react";
-import { APIs } from "@/data/apiData";
+import { Search, ExternalLink, BookOpen, FileText, Globe, Loader2, Zap } from "lucide-react";
 
 interface DocResult {
   source: string;
@@ -11,105 +10,287 @@ interface DocResult {
   snippet: string;
   url: string;
   icon: typeof BookOpen;
-  category?: string;
 }
 
-const popularSearches = [
-  { term: "ChatGPT", apis: ["groq", "huggingface"] },
-  { term: "Cloud", apis: ["openweather", "openstreetmap", "openchargemap"] },
-  { term: "AI", apis: ["groq", "huggingface", "semanticscholar"] },
-  { term: "Weather", apis: ["openmeteo", "openweather", "noaa"] },
-  { term: "Maps", apis: ["openstreetmap", "opencage", "opentripmap"] },
-  { term: "Movies", apis: ["tmdb", "omdb"] },
-  { term: "Finance", apis: ["alphavantage", "coinpaprika"] },
-  { term: "Space", apis: ["nasa", "spacex", "opensky"] },
-  { term: "Games", apis: ["rawg"] },
-  { term: "Books", apis: ["openlibrary"] },
-  { term: "Health", apis: ["who", "openaq"] },
-  { term: "Travel", apis: ["opentripmap", "openstreetmap"] },
-];
+const API_SERVICE_MAP: Record<string, { name: string; docUrl: string; description: string }> = {
+  "openai": {
+    name: "OpenAI API",
+    docUrl: "https://platform.openai.com/docs/api-reference",
+    description: "Access OpenAI's language models, image generation, embeddings, and more"
+  },
+  "chatgpt": {
+    name: "ChatGPT",
+    docUrl: "https://platform.openai.com/docs/guides/gpt",
+    description: "Build applications with GPT models powered by OpenAI"
+  },
+  "gpt": {
+    name: "GPT Models",
+    docUrl: "https://platform.openai.com/docs/models/gpt-4o",
+    description: "Explore OpenAI's GPT-4 and GPT-4o models"
+  },
+  "claude": {
+    name: "Claude API",
+    docUrl: "https://docs.anthropic.com/en/api",
+    description: "Anthropic's Claude models for safe and beneficial AI"
+  },
+  "anthropic": {
+    name: "Anthropic",
+    docUrl: "https://docs.anthropic.com/en/api",
+    description: "Official Anthropic API documentation"
+  },
+  "google cloud": {
+    name: "Google Cloud",
+    docUrl: "https://cloud.google.com/apis",
+    description: "APIs for Google Cloud services"
+  },
+  "google api": {
+    name: "Google APIs",
+    docUrl: "https://developers.google.com/apis-explorer",
+    description: "Explore all Google APIs"
+  },
+  "aws": {
+    name: "AWS",
+    docUrl: "https://docs.aws.amazon.com/api-gateway/",
+    description: "Amazon Web Services API Gateway and services"
+  },
+  "amazon": {
+    name: "Amazon API",
+    docUrl: "https://developer.amazon.com/docs",
+    description: "Amazon developer APIs"
+  },
+  "azure": {
+    name: "Microsoft Azure",
+    docUrl: "https://learn.microsoft.com/en-us/azure/applied-ai-services/",
+    description: "Azure AI and cloud APIs"
+  },
+  "microsoft": {
+    name: "Microsoft APIs",
+    docUrl: "https://learn.microsoft.com/en-us/azure/applied-ai-services/",
+    description: "Microsoft Azure and AI APIs"
+  },
+  "gemini": {
+    name: "Google Gemini API",
+    docUrl: "https://ai.google.dev/docs",
+    description: "Google's Gemini AI model API"
+  },
+  "mistral": {
+    name: "Mistral AI",
+    docUrl: "https://docs.mistral.ai/",
+    description: "Mistral AI's open and commercial models"
+  },
+  "groq": {
+    name: "Groq API",
+    docUrl: "https://console.groq.com/docs",
+    description: "Fast inference API with LLaMA and Mixtral models"
+  },
+  "huggingface": {
+    name: "Hugging Face",
+    docUrl: "https://huggingface.co/docs",
+    description: "Transformers, datasets, and model hub"
+  },
+  "cohere": {
+    name: "Cohere API",
+    docUrl: "https://docs.cohere.com/",
+    description: "Enterprise AI platform with Command and Embed models"
+  },
+  "replicate": {
+    name: "Replicate",
+    docUrl: "https://replicate.com/docs",
+    description: "Run open-source models via API"
+  },
+  "cloudflare": {
+    name: "Cloudflare API",
+    docUrl: "https://developers.cloudflare.com/api/",
+    description: "Cloudflare's developer API"
+  },
+  "stripe": {
+    name: "Stripe API",
+    docUrl: "https://stripe.com/docs/api",
+    description: "Payment processing and financial APIs"
+  },
+  "twilio": {
+    name: "Twilio API",
+    docUrl: "https://www.twilio.com/docs/usage/api",
+    description: "Communications APIs for SMS, voice, and more"
+  },
+  "sendgrid": {
+    name: "SendGrid API",
+    docUrl: "https://docs.sendgrid.com/api-reference",
+    description: "Email delivery and marketing APIs"
+  },
+  "firebase": {
+    name: "Firebase",
+    docUrl: "https://firebase.google.com/docs/reference",
+    description: "Google's app development platform"
+  },
+  "supabase": {
+    name: "Supabase",
+    docUrl: "https://supabase.com/docs",
+    description: "Open source Firebase alternative with Postgres"
+  },
+  "prisma": {
+    name: "Prisma",
+    docUrl: "https://www.prisma.io/docs",
+    description: "Next-generation ORM for Node.js and TypeScript"
+  },
+  "openapi": {
+    name: "OpenAPI Specification",
+    docUrl: "https://swagger.io/specification/",
+    description: "Standard for designing REST APIs"
+  },
+  "rest api": {
+    name: "REST API",
+    docUrl: "https://restfulapi.net/",
+    description: "Best practices for REST API design"
+  },
+  "graphql": {
+    name: "GraphQL",
+    docUrl: "https://graphql.org/learn/",
+    description: "Query language for APIs"
+  },
+  "weatherapi": {
+    name: "WeatherAPI",
+    docUrl: "https://www.weatherapi.com/docs/",
+    description: "Weather forecasting API"
+  },
+  "openweathermap": {
+    name: "OpenWeatherMap",
+    docUrl: "https://openweathermap.org/api",
+    description: "Weather data API"
+  },
+  "newsapi": {
+    name: "News API",
+    docUrl: "https://newsapi.org/docs",
+    description: "Breaking news headlines API"
+  },
+  "github api": {
+    name: "GitHub API",
+    docUrl: "https://docs.github.com/en/rest",
+    description: "GitHub's REST and GraphQL APIs"
+  },
+  "twitter api": {
+    name: "X/Twitter API",
+    docUrl: "https://developer.twitter.com/en/docs",
+    description: "X platform APIs"
+  },
+  "discord api": {
+    name: "Discord API",
+    docUrl: "https://discord.com/developers/docs",
+    description: "Build bots and integrations for Discord"
+  },
+  "spotify api": {
+    name: "Spotify Web API",
+    docUrl: "https://developer.spotify.com/documentation/web-api",
+    description: "Music and podcast data API"
+  },
+  "youtube api": {
+    name: "YouTube API",
+    docUrl: "https://developers.google.com/youtube/v3/docs",
+    description: "YouTube Data and Player APIs"
+  },
+  "maps api": {
+    name: "Maps APIs",
+    docUrl: "https://developers.google.com/maps",
+    description: "Google Maps Platform APIs"
+  },
+  "nasa api": {
+    name: "NASA Open APIs",
+    docUrl: "https://api.nasa.gov/",
+    description: "NASA's free public APIs"
+  },
+  "openlibrary api": {
+    name: "Open Library API",
+    docUrl: "https://openlibrary.org/developers/api",
+    description: "Open book data and metadata"
+  },
+  "tmdb": {
+    name: "TMDB API",
+    docUrl: "https://developer.themoviedb.org/docs",
+    description: "The Movie Database API"
+  },
+  "spoonacular": {
+    name: "Spoonacular API",
+    docUrl: "https://spoonacular.com/food-api/docs",
+    description: "Food and recipe API"
+  },
+  "api key": {
+    name: "API Keys Guide",
+    docUrl: "https://platform.openai.com/docs/api-keys",
+    description: "How to get and use API keys"
+  },
+  "api documentation": {
+    name: "API Documentation Guide",
+    docUrl: "https://swagger.io/tools/swagger-ui/",
+    description: "Build beautiful API documentation"
+  },
+  "spacex": {
+    name: "SpaceX API",
+    docUrl: "https://github.com/r-spacex/SpaceX-API",
+    description: "Launch data, rockets, and missions from SpaceX"
+  },
+  "nasa": {
+    name: "NASA Open APIs",
+    docUrl: "https://api.nasa.gov/",
+    description: "NASA's free public APIs for space data"
+  },
+  "earthquake": {
+    name: "USGS Earthquake API",
+    docUrl: "https://earthquake.usgs.gov/fdsnws/event/1/",
+    description: "Real-time earthquake data from USGS"
+  },
+  "weather": {
+    name: "Weather APIs",
+    docUrl: "https://open-meteo.com/en/docs",
+    description: "Free weather forecast API"
+  },
+  "openlibrary": {
+    name: "Open Library API",
+    docUrl: "https://openlibrary.org/developers/api",
+    description: "Free book data and metadata"
+  },
+  "usgs": {
+    name: "USGS APIs",
+    docUrl: "https://earthquake.usgs.gov/fdsnws/event/1/",
+    description: "Geoscience data from USGS"
+  },
+  "alphavantage": {
+    name: "Alpha Vantage API",
+    docUrl: "https://www.alphavantage.co/documentation/",
+    description: "Stock market and finance data"
+  },
+  "alphacast": {
+    name: "AlphaCast API",
+    docUrl: "https://documenter.getpostman.com/view/12384768/TzXqDR8k",
+    description: "Sports predictions API"
+  },
+  "omdb": {
+    name: "OMDb API",
+    docUrl: "https://www.omdbapi.com/",
+    description: "Movie and TV show database"
+  }
+};
 
-function searchApiDocs(query: string): DocResult[] {
+function findApiServiceMatch(query: string): DocResult | null {
   const q = query.toLowerCase().trim();
-  if (!q) return [];
-
-  const results: DocResult[] = [];
-
-  const matchedPopular = popularSearches.find(p => 
-    p.term.toLowerCase().includes(q) || q.includes(p.term.toLowerCase())
-  );
-
-  if (matchedPopular) {
-    for (const apiId of matchedPopular.apis) {
-      const api = APIs.find(a => a.id === apiId);
-      if (api) {
-        results.push({
-          source: "DEVPULSE API",
-          title: api.name,
-          snippet: api.description,
-          url: `https://devpulse.app/agentguard/docs#${api.id}`,
-          icon: Zap,
-          category: api.category,
-        });
-      }
-    }
-  }
-
-  const directMatch = APIs.find(a => 
-    a.name.toLowerCase().includes(q) || 
-    a.id.toLowerCase().includes(q) ||
-    a.category.toLowerCase().includes(q) ||
-    a.description.toLowerCase().includes(q)
-  );
-
-  if (directMatch) {
-    const exists = results.some(r => r.title === directMatch.name);
-    if (!exists) {
-      results.unshift({
-        source: "DEVPULSE API",
-        title: directMatch.name,
-        snippet: directMatch.description,
-        url: `https://devpulse.app/agentguard/docs#${directMatch.id}`,
+  for (const [key, service] of Object.entries(API_SERVICE_MAP)) {
+    if (q.includes(key) || key.includes(q)) {
+      return {
+        source: "Official Docs",
+        title: service.name,
+        snippet: service.description,
+        url: service.docUrl,
         icon: Zap,
-        category: directMatch.category,
-      });
+      };
     }
   }
-
-  const categoryMatches = APIs.filter(a => 
-    a.category.toLowerCase().includes(q) && a.id !== directMatch?.id
-  );
-  for (const api of categoryMatches.slice(0, 3)) {
-    const exists = results.some(r => r.title === api.name);
-    if (!exists) {
-      results.push({
-        source: "DEVPULSE API",
-        title: api.name,
-        snippet: api.description,
-        url: `https://devpulse.app/agentguard/docs#${api.id}`,
-        icon: Zap,
-        category: api.category,
-      });
-    }
-  }
-
-  if (results.length === 0) {
-    for (const api of APIs.slice(0, 5)) {
-      results.push({
-        source: "DEVPULSE API",
-        title: api.name,
-        snippet: api.description,
-        url: `https://devpulse.app/agentguard/docs#${api.id}`,
-        icon: Zap,
-        category: api.category,
-      });
-    }
-  }
-
-  return results.slice(0, 8);
+  return null;
 }
 
 async function searchWikipedia(query: string): Promise<DocResult[]> {
+  const apiMatch = findApiServiceMatch(query);
+  if (apiMatch) {
+    return [apiMatch];
+  }
   try {
     const res = await fetch(
       `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`
@@ -127,15 +308,33 @@ async function searchWikipedia(query: string): Promise<DocResult[]> {
   } catch { return []; }
 }
 
+async function searchSemanticScholar(query: string): Promise<DocResult[]> {
+  try {
+    const res = await fetch(
+      `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=3&fields=title,abstract,url`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.data || [])
+      .filter((p: any) => p.title)
+      .map((p: any) => ({
+        source: "Semantic Scholar",
+        title: p.title,
+        snippet: p.abstract || "No abstract available",
+        url: p.url || `https://www.semanticscholar.org/paper/${p.paperId}`,
+        icon: FileText,
+      }));
+  } catch { return []; }
+}
+
 async function searchDuckDuckGo(query: string): Promise<DocResult[]> {
   try {
     const res = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(query + " API developer documentation")}&format=json`
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query + " API documentation")}&format=json`
     );
     if (!res.ok) return [];
     const data = await res.json();
     const results: DocResult[] = [];
-    
     if (data.Abstract) {
       results.push({
         source: "DuckDuckGo",
@@ -145,8 +344,7 @@ async function searchDuckDuckGo(query: string): Promise<DocResult[]> {
         icon: BookOpen,
       });
     }
-    
-    for (const topic of (data.RelatedTopics || []).slice(0, 2)) {
+    for (const topic of (data.RelatedTopics || []).slice(0, 3)) {
       if (topic?.Text) {
         results.push({
           source: "DuckDuckGo",
@@ -166,38 +364,31 @@ export default function DocSearch() {
   const [results, setResults] = useState<DocResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [searchMode, setSearchMode] = useState<"api" | "web">("api");
 
   const handleSearch = async () => {
     if (!query.trim()) return;
     setIsSearching(true);
     setHasSearched(true);
 
-    if (searchMode === "api") {
-      const apiResults = searchApiDocs(query);
-      setResults(apiResults);
-      setIsSearching(false);
-    } else {
-      try {
-        const [wiki, ddg] = await Promise.allSettled([
-          searchWikipedia(query),
-          searchDuckDuckGo(query),
-        ]);
+    try {
+      const [wiki, scholar, ddg] = await Promise.allSettled([
+        searchWikipedia(query),
+        searchSemanticScholar(query),
+        searchDuckDuckGo(query),
+      ]);
 
-        const all: DocResult[] = [
-          ...(wiki.status === "fulfilled" ? wiki.value : []),
-          ...(ddg.status === "fulfilled" ? ddg.value : []),
-        ];
-        setResults(all);
-      } catch {
-        setResults([]);
-      } finally {
-        setIsSearching(false);
-      }
+      const all: DocResult[] = [
+        ...(wiki.status === "fulfilled" ? wiki.value : []),
+        ...(scholar.status === "fulfilled" ? scholar.value : []),
+        ...(ddg.status === "fulfilled" ? ddg.value : []),
+      ];
+      setResults(all);
+    } catch {
+      setResults([]);
+    } finally {
+      setIsSearching(false);
     }
   };
-
-  const suggestions = ["ChatGPT", "Weather API", "OpenStreetMap", "TMDB", "NASA", "Groq AI", "Machine Learning"];
 
   return (
     <section id="docs" className="py-24 px-6">
@@ -217,39 +408,17 @@ export default function DocSearch() {
             </h2>
           </div>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto font-light">
-            Search our API database or the web for documentation.
+            Smart search: API services → official docs, everything else → Wikipedia, Semantic Scholar & DuckDuckGo.
           </p>
         </motion.div>
 
+        {/* Search bar */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="relative mb-10"
         >
-          <div className="flex gap-2 mb-4 justify-center">
-            <button
-              onClick={() => setSearchMode("api")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                searchMode === "api"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
-              <Zap className="w-4 h-4 inline mr-1" /> API Database
-            </button>
-            <button
-              onClick={() => setSearchMode("web")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                searchMode === "web"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
-              <Globe className="w-4 h-4 inline mr-1" /> Web Search
-            </button>
-          </div>
-
           <div className="glass-card gradient-border rounded-2xl flex items-center overflow-hidden float-card">
             <Search className="w-5 h-5 text-muted-foreground ml-5" />
             <input
@@ -257,7 +426,7 @@ export default function DocSearch() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleSearch()}
-              placeholder={searchMode === "api" ? "Search APIs... (try: ChatGPT, Weather, Maps)" : "Search web... (try: API documentation)"}
+              placeholder="Search API docs... (try: OpenAI, AWS, ChatGPT, weather, machine learning)"
               className="flex-1 px-4 py-4 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-lg"
             />
             <button
@@ -269,8 +438,9 @@ export default function DocSearch() {
             </button>
           </div>
 
+          {/* Quick suggestions */}
           <div className="flex gap-2 mt-4 justify-center flex-wrap">
-            {suggestions.map(s => (
+            {["OpenAI", "ChatGPT", "Claude", "AWS", "Gemini", "machine learning"].map(s => (
               <button
                 key={s}
                 onClick={() => { setQuery(s); }}
@@ -282,6 +452,7 @@ export default function DocSearch() {
           </div>
         </motion.div>
 
+        {/* Results */}
         <AnimatePresence mode="wait">
           {isSearching ? (
             <motion.div
@@ -292,9 +463,7 @@ export default function DocSearch() {
               className="text-center py-12"
             >
               <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">
-                {searchMode === "api" ? "Searching API database..." : "Searching the web..."}
-              </p>
+              <p className="text-muted-foreground">Searching live across multiple sources...</p>
             </motion.div>
           ) : (
             <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
@@ -314,9 +483,6 @@ export default function DocSearch() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-mono text-primary/60">{r.source}</span>
-                        {r.category && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{r.category}</span>
-                        )}
                       </div>
                       <h3 className="font-semibold text-foreground mb-1">{r.title}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{r.snippet}</p>
@@ -327,12 +493,6 @@ export default function DocSearch() {
               ))}
               {hasSearched && results.length === 0 && !isSearching && (
                 <p className="text-center text-muted-foreground py-12">No results found. Try a different query.</p>
-              )}
-              {!hasSearched && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Code className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                  <p>Search for APIs, SDKs, or documentation</p>
-                </div>
               )}
             </motion.div>
           )}

@@ -2,23 +2,25 @@ import { useState, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import SplashScreen from "./components/SplashScreen";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import RefundPolicy from "./pages/RefundPolicy";
+import Contact from "./pages/Contact";
 
-const AgentGuardDashboard = lazy(() => import("./pages/AgentGuardDashboard"));
-const AgentGuardAuth = lazy(() => import("./pages/AgentGuardAuth"));
+const AgentGuardGate = lazy(() => import("./pages/AgentGuardGate"));
+const Auth = lazy(() => import("./pages/Auth"));
 const AgentGuardSDKDocs = lazy(() => import("./pages/AgentGuardSDKDocs"));
 const AgentGuardResetPassword = lazy(() => import("./pages/AgentGuardResetPassword"));
 const AgentGuardAgentDetail = lazy(() => import("./pages/AgentGuardAgentDetail"));
 const AgentGuardSettings = lazy(() => import("./pages/AgentGuardSettings"));
-const AgentGuardLanding = lazy(() => import("./pages/AgentGuardLanding"));
-
-const queryClient = new QueryClient();
 
 const PageLoader = () => (
   <div className="min-h-screen bg-background flex items-center justify-center">
@@ -41,9 +43,16 @@ const App = () => {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/agentguard" element={<AgentGuardDashboard />} />
-              <Route path="/agentguard/landing" element={<AgentGuardLanding />} />
-              <Route path="/agentguard/auth" element={<AgentGuardAuth />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/refund" element={<RefundPolicy />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/agentguard" element={<AgentGuardGate />} />
+              <Route path="/agentguard/landing" element={<AgentGuardGate />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/reset-password" element={<AgentGuardResetPassword />} />
+              {/* Backward-compatible route (single auth UI lives at /auth) */}
+              <Route path="/agentguard/auth" element={<Auth />} />
               <Route path="/agentguard/docs" element={<AgentGuardSDKDocs />} />
               <Route path="/agentguard/reset-password" element={<AgentGuardResetPassword />} />
               <Route path="/agentguard/agent/:agentId" element={<AgentGuardAgentDetail />} />

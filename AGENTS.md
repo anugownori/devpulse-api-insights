@@ -1,5 +1,8 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# DevPulse API Insights – Agent Rules
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+This is a **Vite + React** SPA (not Next.js). The app uses:
+- **Vite** for build (`vite build`, `vite dev`)
+- **react-router-dom** for routing
+- **Supabase** for auth and backend
+
+The `src/app/` folder contains unused Next.js-style files; the main entry is `src/main.tsx` → `src/App.tsx`.

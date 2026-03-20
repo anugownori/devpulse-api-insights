@@ -1,4 +1,34 @@
+# DevPulse API Insights
 
+Vite + React dashboard for API health monitoring and AgentGuard (AI agent cost control, leak detection, kill switch).
+
+## Setup
+
+1. **Install dependencies**
+   ```sh
+   npm i
+   ```
+
+2. **Configure environment**
+   Copy `.env.example` to `.env` and set:
+   - `VITE_SUPABASE_URL` – your Supabase project URL
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` – your Supabase anon/public key
+   - `APP_ALLOWED_ORIGINS` – comma-separated web origins allowed to call Supabase edge functions (include your production domain)
+
+3. **Run development server**
+   ```sh
+   npm run dev
+   ```
+   App runs at http://localhost:8080
+
+4. **Supabase migrations**  
+   Run `supabase db push` (or apply migrations) to create tables. The `user_api_keys` table is required for the api-proxy edge function.
+
+5. **Supabase secrets (production)**
+   Set required secrets before going live:
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `STRIPE_SECRET_KEY` (if using paid plans)
+   - `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (recommended)
 
 ## Project info
 

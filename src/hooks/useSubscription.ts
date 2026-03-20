@@ -3,19 +3,27 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
 const TIERS = {
+  free: {
+    name: "Free",
+    price: "$0",
+    agents: 1,
+    tasks_per_month: 100,
+  },
   pro: {
     price_id: "price_1T8lW8IJZyuGgRb844xhVrFp",
     product_id: "prod_U6zVphW5YLjDsy",
     name: "Pro",
     price: "$12/mo",
-    agents: 25,
+    agents: 10,
+    tasks_per_month: null, // unlimited
   },
   team: {
     price_id: "price_1T8lePIJZyuGgRb8pe7BLhha",
     product_id: "prod_U6zdqQ17IiWgPu",
     name: "Team",
     price: "$39/mo",
-    agents: 100,
+    agents: 50,
+    tasks_per_month: null, // unlimited
   },
 } as const;
 

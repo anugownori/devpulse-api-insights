@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Shield, User, Save, Loader2, Crown, Zap, Bot, CreditCard, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
+import { PLATFORM_PLANS } from "@/data/pricing";
 
 type Profile = {
   id: string;
@@ -16,11 +17,15 @@ type Profile = {
   max_agents: number;
 };
 
-const plans = [
-  { id: "free" as const, name: "Free", price: "$0", period: "/forever", agents: 3, features: ["3 agents", "7-day log retention", "Basic alerts", "CSV export"] },
-  { id: "pro" as const, name: "Pro", price: "$12", period: "/mo", agents: 25, features: ["25 agents", "90-day log retention", "Priority alerts", "API access", "Webhook integrations", "AI cost forecasting"] },
-  { id: "team" as const, name: "Team", price: "$39", period: "/mo", agents: 100, features: ["100 agents", "Unlimited retention", "Team workspaces", "SSO", "Priority support", "Custom webhooks"] },
-];
+const plans = PLATFORM_PLANS.map((p) => ({
+  id: p.id as "free" | "pro" | "team",
+  name: p.name,
+  price: p.price,
+  period: p.period === "/forever" ? "/forever" : "/mo",
+  agents: p.agents,
+  maxTasks: p.tasksPerMonth,
+  features: p.features,
+}));
 
 export default function AgentGuardSettings() {
   const { user, loading: authLoading } = useAuth();
@@ -33,9 +38,10 @@ export default function AgentGuardSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const startHandledRef = useRef(false);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/agentguard/auth");
+    if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading]);
 
   useEffect(() => {
@@ -43,15 +49,23 @@ export default function AgentGuardSettings() {
     fetchProfile();
   }, [user]);
 
-  // Check for checkout success/cancel in URL
+  // Check for checkout success/cancel or ?start=pro|team (from home card)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("checkout") === "success") {
       toast({ title: "Subscription activated!", description: "Your plan has been upgraded." });
       refresh();
       window.history.replaceState({}, "", "/agentguard/settings");
+      return;
     }
-  }, []);
+    const start = params.get("start") as "pro" | "team" | null;
+    if ((start === "pro" || start === "team") && user && !subLoading && !startHandledRef.current) {
+      startHandledRef.current = true;
+      window.history.replaceState({}, "", "/agentguard/settings");
+      setCheckingOut(start);
+      checkout(start).catch((err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" })).finally(() => setCheckingOut(null));
+    }
+  }, [user, subLoading, checkout, toast, refresh]);
 
   const fetchProfile = async () => {
     const { data } = await supabase.from("profiles").select("*").eq("user_id", user!.id).single();
@@ -224,7 +238,7 @@ export default function AgentGuardSettings() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Max Agents</p>
-              <p className="font-mono text-foreground">{tier === "team" ? 100 : tier === "pro" ? 25 : 3}</p>
+              <p className="font-mono text-foreground">{tier === "team" ? 50 : tier === "pro" ? 10 : 0}</p>
             </div>
             <div>
               <p className="text-xs text-muted-foreground">User ID</p>

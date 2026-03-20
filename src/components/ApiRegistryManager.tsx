@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Search, Plus, Trash2, Edit3, Check, ToggleLeft, ToggleRight,
@@ -15,7 +15,7 @@ export interface CustomAPI extends APIInfo {
 interface Props {
   builtInApis: APIInfo[];
   customApis: CustomAPI[];
-  disabledApiIds: string[];
+  disabledApiIds: Set<string>;
   onToggleApi: (id: string) => void;
   onRemoveCustomApi: (id: string) => void;
   onAddCustomApi: (api: CustomAPI) => void;
@@ -31,6 +31,11 @@ export default function ApiRegistryManager({
 }: Props) {
   const [search, setSearch] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => isOpen && e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedSection, setExpandedSection] = useState<"builtin" | "custom" | null>("builtin");
 
@@ -66,7 +71,7 @@ export default function ApiRegistryManager({
     );
   }, [customApis, search]);
 
-  const enabledCount = allApis.filter(a => !disabledApiIds.includes(a.id)).length;
+  const enabledCount = allApis.filter(a => !disabledApiIds.has(a.id)).length;
 
   const handleAdd = () => {
     if (!newName.trim() || !newTestUrl.trim()) return;
@@ -176,7 +181,7 @@ export default function ApiRegistryManager({
                     className="space-y-1.5 overflow-hidden"
                   >
                     {filteredBuiltIn.map(api => {
-                      const enabled = !disabledApiIds.includes(api.id);
+                      const enabled = !disabledApiIds.has(api.id);
                       return (
                         <div
                           key={api.id}
@@ -281,7 +286,7 @@ export default function ApiRegistryManager({
                                 onClick={() => onToggleApi(api.id)}
                                 className="shrink-0"
                               >
-                                {!disabledApiIds.includes(api.id) ? (
+                                {!disabledApiIds.has(api.id) ? (
                                   <ToggleRight className="w-5 h-5 text-primary" />
                                 ) : (
                                   <ToggleLeft className="w-5 h-5 text-muted-foreground" />

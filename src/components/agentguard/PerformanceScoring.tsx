@@ -20,9 +20,9 @@ function scoreAgent(agent: Agent) {
   const callsPerTask = agent.total_tasks > 0 ? agent.total_api_calls / agent.total_tasks : 0;
 
   // Score 0-100
-  let costScore = Math.max(0, 100 - costPerTask * 50);
-  let efficiencyScore = Math.max(0, 100 - callsPerTask * 2);
-  let activityScore = Math.min(100, agent.total_tasks * 5);
+  const costScore = Math.max(0, 100 - costPerTask * 50);
+  const efficiencyScore = Math.max(0, 100 - callsPerTask * 2);
+  const activityScore = Math.min(100, agent.total_tasks * 5);
 
   const overall = Math.round((costScore * 0.4 + efficiencyScore * 0.35 + activityScore * 0.25));
 

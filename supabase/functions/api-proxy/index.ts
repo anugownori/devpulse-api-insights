@@ -1,17 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const ALLOWED_ORIGINS = new Set([
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://devpluse.in",
-]);
-
-const getCorsHeaders = (origin: string | null) => ({
-  "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin || "") ? origin! : "",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-});
+import { Redis } from "https://esm.sh/@upstash/redis@1.34.3";
+import { Ratelimit } from "https://esm.sh/@upstash/ratelimit@1.1.2";
+import { buildCorsHeaders } from "../_shared/cors.ts";
 
 const ALLOWED_HOSTS = new Set([
   "api.openweathermap.org",
@@ -28,48 +18,144 @@ const ALLOWED_HOSTS = new Set([
   "api.coingecko.com",
 ]);
 
+// Rate limit: 100 req/min per IP (shared via Redis when configured)
 const RATE_LIMIT_WINDOW = 60;
 const RATE_LIMIT_MAX = 100;
+
+// Fallback in-memory rate limit (stricter: 50/min) when Redis unavailable
+const FALLBACK_RATE_LIMIT_MAX = 50;
 const requestCounts = new Map<string, { count: number; resetAt: number }>();
 
-const checkRateLimit = (key: string): boolean => {
+const checkRateLimitInMemory = (key: string): boolean => {
   const now = Date.now();
   const record = requestCounts.get(key);
-  
   if (!record || record.resetAt < now) {
     requestCounts.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW * 1000 });
     return true;
   }
-  
-  if (record.count >= RATE_LIMIT_MAX) {
-    return false;
-  }
-  
+  if (record.count >= FALLBACK_RATE_LIMIT_MAX) return false;
   record.count++;
   return true;
 };
 
+let redisRatelimit: { limit: (id: string) => Promise<{ success: boolean }> } | null = null;
+const redisUrl = Deno.env.get("UPSTASH_REDIS_REST_URL");
+const redisToken = Deno.env.get("UPSTASH_REDIS_REST_TOKEN");
+if (redisUrl && redisToken) {
+  try {
+    const redis = new Redis({ url: redisUrl, token: redisToken });
+    redisRatelimit = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(RATE_LIMIT_MAX, `${RATE_LIMIT_WINDOW} s`),
+      analytics: true,
+    });
+  } catch (e) {
+    console.warn("Upstash Redis init failed, using in-memory rate limit:", e);
+  }
+}
+
+async function checkRateLimit(key: string): Promise<boolean> {
+  if (redisRatelimit) {
+    const { success } = await redisRatelimit.limit(key);
+    return success;
+  }
+  return checkRateLimitInMemory(key);
+}
+
+// Circuit breaker: prevent hammering failing upstreams (per-instance)
+const CIRCUIT_FAILURE_THRESHOLD = 5;
+const CIRCUIT_RESET_MS = 30_000;
+const circuitState = new Map<string, { failures: number; openUntil: number }>();
+
+function isCircuitOpen(host: string): boolean {
+  const state = circuitState.get(host);
+  if (!state) return false;
+  if (Date.now() < state.openUntil) return true;
+  circuitState.delete(host);
+  return false;
+}
+
+function recordCircuitFailure(host: string): void {
+  const state = circuitState.get(host) ?? { failures: 0, openUntil: 0 };
+  state.failures++;
+  if (state.failures >= CIRCUIT_FAILURE_THRESHOLD) {
+    state.openUntil = Date.now() + CIRCUIT_RESET_MS;
+  }
+  circuitState.set(host, state);
+}
+
+function recordCircuitSuccess(host: string): void {
+  circuitState.delete(host);
+}
+
+async function fetchWithCircuitBreaker(
+  url: string,
+  options: RequestInit
+): Promise<Response> {
+  const host = new URL(url).hostname;
+  if (isCircuitOpen(host)) {
+    return new Response(
+      JSON.stringify({
+        error: "Upstream temporarily unavailable. Please retry later.",
+      }),
+      { status: 503, headers: { "Content-Type": "application/json" } }
+    );
+  }
+  const FETCH_TIMEOUT_MS = 15_000;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (res.ok) {
+      recordCircuitSuccess(host);
+    } else if (res.status >= 500) {
+      recordCircuitFailure(host);
+    }
+    return res;
+  } catch (err) {
+    clearTimeout(timeout);
+    recordCircuitFailure(host);
+    throw err;
+  }
+}
+
 Deno.serve(async (req) => {
   const origin = req.headers.get("Origin");
-  const corsHeaders = getCorsHeaders(origin);
-  const clientIp = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip") || "unknown";
-  
+  const corsHeaders = buildCorsHeaders(origin);
+  const clientIp =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("cf-connecting-ip") ||
+    "unknown";
+
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (!checkRateLimit(clientIp)) {
-    return new Response(JSON.stringify({ error: "Too many requests. Please try again later." }), {
-      status: 429,
-      headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(RATE_LIMIT_WINDOW) },
-    });
+  const allowed = await checkRateLimit(`proxy:${clientIp}`);
+  if (!allowed) {
+    return new Response(
+      JSON.stringify({ error: "Too many requests. Please try again later." }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "Retry-After": String(RATE_LIMIT_WINDOW),
+        },
+      }
+    );
   }
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -77,21 +163,24 @@ Deno.serve(async (req) => {
 
     if (!url || typeof url !== "string") {
       return new Response(JSON.stringify({ error: "URL required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const parsedUrl = new URL(url);
-    
+
     if (!ALLOWED_HOSTS.has(parsedUrl.hostname)) {
       return new Response(JSON.stringify({ error: "Host not allowed" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     if (!["http:", "https:"].includes(parsedUrl.protocol)) {
       return new Response(JSON.stringify({ error: "Invalid protocol" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -103,25 +192,22 @@ Deno.serve(async (req) => {
     let apiKey: string | null = null;
     if (apiKeyId) {
       const token = authHeader.replace("Bearer ", "");
-      const { data: claimsData } = await supabase.auth.getClaims(token);
-      if (claimsData?.claims?.sub) {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (user?.id) {
         const { data: keyData } = await supabase
           .from("user_api_keys")
           .select("encrypted_key")
           .eq("id", apiKeyId)
-          .eq("user_id", claimsData.claims.sub)
+          .eq("user_id", user.id)
           .single();
-        
+
         if (keyData?.encrypted_key) {
           apiKey = keyData.encrypted_key;
         }
       }
     }
 
-    const fetchOptions: RequestInit = {
-      method: "GET",
-      headers: {},
-    };
+    const fetchOptions: RequestInit = { method: "GET", headers: {} };
 
     if (apiKey) {
       const updatedUrl = new URL(parsedUrl);
@@ -135,17 +221,25 @@ Deno.serve(async (req) => {
       parsedUrl.href = updatedUrl.href;
     }
 
-    const response = await fetch(parsedUrl.href, fetchOptions);
+    const response = await fetchWithCircuitBreaker(parsedUrl.href, fetchOptions);
     const data = await response.text();
 
     return new Response(data, {
       status: response.status,
-      headers: { ...corsHeaders, "Content-Type": response.headers.get("Content-Type") || "application/json" },
+      headers: {
+        ...corsHeaders,
+        "Content-Type":
+          response.headers.get("Content-Type") || "application/json",
+      },
     });
   } catch (err) {
     console.error("Proxy error:", err);
-    return new Response(JSON.stringify({ error: "Internal server error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "Internal server error" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });

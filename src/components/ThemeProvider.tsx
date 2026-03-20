@@ -12,14 +12,10 @@ type ThemeContextType = {
 const ThemeContext = createContext<ThemeContextType>({ theme: "dark", toggleTheme: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
-
-  useEffect(() => {
+  const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem("agentguard-theme");
-    if (stored === "light" || stored === "dark") {
-      setTheme(stored);
-    }
-  }, []);
+    return (stored === "light" ? "light" : "dark") as Theme;
+  });
 
   useEffect(() => {
     const root = document.documentElement;

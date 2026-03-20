@@ -32,6 +32,7 @@ export default function CostForecast({ userId }: Props) {
     const { data: costData } = await supabase
       .from("cost_entries")
       .select("date, cost")
+      .eq("user_id", userId)
       .order("date", { ascending: true });
 
     if (!costData || costData.length < 2) {

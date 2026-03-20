@@ -1,4 +1,5 @@
 import { Zap } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function Footer() {
   return (
@@ -11,13 +12,16 @@ export default function Footer() {
           <span className="text-sm font-serif font-bold text-foreground">
             Dev<span className="text-primary">Pulse</span>
           </span>
-          <span className="text-xs text-muted-foreground ml-2">
-            Built for GDG CodeSprint 4.0
-          </span>
+          <span className="text-xs text-muted-foreground ml-2">Real-time API intelligence and agent safety</span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Real time API Intelligence for the Developer Community
-        </p>
+        <div className="flex items-center gap-4 flex-wrap justify-center md:justify-end">
+          <a href="#pricing" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+          <a href="/agentguard" className="text-xs text-muted-foreground hover:text-foreground transition-colors">AgentGuard</a>
+          <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Privacy</Link>
+          <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Terms</Link>
+          <Link to="/refund" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Refund</Link>
+          <Link to="/contact" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Contact</Link>
+        </div>
       </div>
     </footer>
   );

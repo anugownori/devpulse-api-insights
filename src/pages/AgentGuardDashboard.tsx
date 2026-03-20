@@ -7,13 +7,16 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useTasksThisMonth } from "@/hooks/useTasksThisMonth";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import AgentCostChart from "@/components/agentguard/AgentCostChart";
 import AgentFlowView from "@/components/agentguard/AgentFlowView";
 import AlertsFeed from "@/components/agentguard/AlertsFeed";
 import AddAgentModal from "@/components/agentguard/AddAgentModal";
-import PerformanceScoring from "@/components/agentguard/PerformanceScoring";
+import AgentHealthScore from "@/components/agentguard/AgentHealthScore";
+import BurnRateProjection from "@/components/agentguard/BurnRateProjection";
 import ProviderComparison from "@/components/agentguard/ProviderComparison";
 import ExportReports from "@/components/agentguard/ExportReports";
 import RealtimeMonitor from "@/components/agentguard/RealtimeMonitor";
@@ -25,6 +28,7 @@ import DateRangeFilter from "@/components/agentguard/DateRangeFilter";
 import WebhookManager from "@/components/agentguard/WebhookManager";
 import TeamWorkspace from "@/components/agentguard/TeamWorkspace";
 import CostForecast from "@/components/agentguard/CostForecast";
+import CostAnomalyAlert from "@/components/agentguard/CostAnomalyAlert";
 import ThemeToggle from "@/components/agentguard/ThemeToggle";
 import UsageAnalytics from "@/components/agentguard/UsageAnalytics";
 
@@ -37,6 +41,7 @@ type Agent = {
   max_cost_per_task: number | null;
   max_api_calls_per_min: number | null;
   max_reasoning_steps: number | null;
+  budget_amount: number | null;
   total_cost: number;
   total_api_calls: number;
   total_tasks: number;
@@ -79,8 +84,15 @@ const tabs = [
 
 type TabId = typeof tabs[number]["id"];
 
+const MAX_AGENTS_BY_TIER = { free: 0, pro: 10, team: 50 } as const;
+
 export default function AgentGuardDashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { tier } = useSubscription();
+  const { tasksThisMonth } = useTasksThisMonth(user?.id);
+  const maxAgents = MAX_AGENTS_BY_TIER[tier] ?? 1;
+  const maxTasksFree = 100;
+  const isFreeTier = tier === "free";
   const navigate = useNavigate();
   const { toast } = useToast();
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -91,8 +103,13 @@ export default function AgentGuardDashboard() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/agentguard/auth");
+    if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    // Guardrail: never render the dashboard for Free tier.
+    if (!authLoading && tier === "free") navigate("/agentguard");
+  }, [authLoading, tier, navigate]);
 
   useEffect(() => {
     if (!user) return;
@@ -108,7 +125,20 @@ export default function AgentGuardDashboard() {
         supabase.from("agents").select("*").order("created_at", { ascending: false }),
         supabase.from("alerts").select("*").order("created_at", { ascending: false }).limit(20),
       ]);
-      if (agentsRes.data) setAgents(agentsRes.data as Agent[]);
+      const agentList = (agentsRes.data || []) as Agent[];
+      // Auto-pause agents that exceeded their pre-paid budget
+      let didPause = false;
+      for (const a of agentList) {
+        if (a.budget_amount != null && Number(a.total_cost) >= a.budget_amount && a.status === "active") {
+          await supabase.from("agents").update({ status: "paused" }).eq("id", a.id);
+          a.status = "paused";
+          didPause = true;
+        }
+      }
+      if (didPause) {
+        toast({ title: "Budget exceeded", description: "Agent(s) paused — cost reached pre-paid limit.", variant: "destructive" });
+      }
+      setAgents(agentList);
       if (alertsRes.data) setAlerts(alertsRes.data as Alert[]);
       if (agentsRes.error) toast({ title: "Error loading agents", description: agentsRes.error.message, variant: "destructive" });
     } catch (err: any) {
@@ -250,12 +280,13 @@ export default function AgentGuardDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+        <div className={`grid gap-3 sm:gap-4 mb-6 sm:mb-8 ${isFreeTier ? "grid-cols-2 md:grid-cols-5" : "grid-cols-2 md:grid-cols-4"}`}>
           {[
             { label: "Total Cost", value: `$${totalCost.toFixed(2)}`, icon: DollarSign, color: "text-primary" },
-            { label: "Active Agents", value: activeAgents, icon: Bot, color: "text-status-healthy" },
+            { label: "Active Agents", value: `${activeAgents}/${maxAgents}`, icon: Bot, color: "text-status-healthy" },
             { label: "API Calls", value: totalCalls.toLocaleString(), icon: Zap, color: "text-secondary" },
             { label: "Alerts", value: unreadAlerts, icon: AlertTriangle, color: "text-status-down" },
+            ...(isFreeTier ? [{ label: "Tasks this month", value: `${tasksThisMonth}/${maxTasksFree}`, icon: Activity, color: tasksThisMonth >= maxTasksFree ? "text-status-down" : "text-muted-foreground" }] : []),
           ].map((stat) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               className="glass-card rounded-xl p-4 sm:p-5 border border-border">
@@ -267,6 +298,14 @@ export default function AgentGuardDashboard() {
             </motion.div>
           ))}
         </div>
+
+        {/* Burn rate projection */}
+        <div className="mb-6">
+          <BurnRateProjection userId={user!.id} />
+        </div>
+
+        {/* Cost anomaly alert */}
+        <CostAnomalyAlert userId={user!.id} />
 
         {/* Security actions bar */}
         <div className="flex gap-2 mb-6 flex-wrap">
@@ -342,12 +381,25 @@ export default function AgentGuardDashboard() {
                           <div className="flex items-center gap-2">
                             <span className={`w-2.5 h-2.5 rounded-full ${sc.dot} ${agent.status === "active" ? "animate-pulse-soft" : ""}`} />
                             <h3 className="font-semibold text-foreground">{agent.name}</h3>
+                            {(() => {
+                              const costPerTask = agent.total_tasks > 0 ? Number(agent.total_cost) / agent.total_tasks : 0;
+                              const callsPerTask = agent.total_tasks > 0 ? agent.total_api_calls / agent.total_tasks : 0;
+                              const health = Math.round(Math.max(0, Math.min(100, 100 - costPerTask * 15 - callsPerTask * 0.5)));
+                              return (
+                                <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                  health >= 75 ? "bg-status-healthy/20 text-status-healthy" :
+                                  health >= 50 ? "bg-status-degraded/20 text-status-degraded" : "bg-muted/50 text-muted-foreground"
+                                }`} title="Health score">
+                                  {health}
+                                </span>
+                              );
+                            })()}
                           </div>
                           <span className={`text-xs font-mono px-2.5 py-1 rounded-lg ${sc.bg} ${sc.text}`}>{agent.status}</span>
                         </div>
                         {agent.description && <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{agent.description}</p>}
                         <div className="grid grid-cols-3 gap-2 text-center">
-                          <div><p className="text-xs text-muted-foreground">Cost</p><p className="font-mono text-sm text-foreground">${Number(agent.total_cost).toFixed(2)}</p></div>
+                          <div><p className="text-xs text-muted-foreground">Cost</p><p className={`font-mono text-sm ${agent.budget_amount != null && Number(agent.total_cost) >= (agent.budget_amount || 0) ? "text-status-down" : "text-foreground"}`}>${Number(agent.total_cost).toFixed(2)}{agent.budget_amount != null ? `/${agent.budget_amount}` : ""}</p></div>
                           <div><p className="text-xs text-muted-foreground">Calls</p><p className="font-mono text-sm text-foreground">{agent.total_api_calls}</p></div>
                           <div><p className="text-xs text-muted-foreground">Tasks</p><p className="font-mono text-sm text-foreground">{agent.total_tasks}</p></div>
                         </div>
@@ -367,7 +419,14 @@ export default function AgentGuardDashboard() {
                               <AgentKillSwitch agentId={agent.id} agentName={agent.name} userId={user!.id} onKilled={fetchData} />
                             </div>
                           </div>
-                          <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                          <button
+                              onClick={(e) => { e.stopPropagation(); navigate(`/agentguard/agent/${agent.id}?tab=replay`); }}
+                              className="text-xs text-muted-foreground hover:text-primary transition-colors"
+                              title="Replay"
+                            >
+                              Replay
+                            </button>
+                            <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
                       </motion.div>
                     );
@@ -407,13 +466,13 @@ export default function AgentGuardDashboard() {
 
           {activeTab === "performance" && (
             <motion.div key="performance" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <PerformanceScoring agents={agents} />
+              <AgentHealthScore agents={agents} />
             </motion.div>
           )}
 
           {activeTab === "flow" && (
             <motion.div key="flow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <AgentFlowView agents={agents} />
+              <AgentFlowView agents={agents} userId={user!.id} />
             </motion.div>
           )}
 
@@ -455,7 +514,13 @@ export default function AgentGuardDashboard() {
         </AnimatePresence>
       </div>
 
-      <AddAgentModal isOpen={showAddAgent} onClose={() => setShowAddAgent(false)} onAdd={handleAddAgent} />
+      <AddAgentModal
+        isOpen={showAddAgent}
+        onClose={() => setShowAddAgent(false)}
+        onAdd={handleAddAgent}
+        maxAgents={maxAgents}
+        currentAgentCount={agents.length}
+      />
     </div>
   );
 }

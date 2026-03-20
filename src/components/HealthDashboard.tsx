@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo, memo, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp, Loader2, Eye, ChevronDown, Settings2 } from "lucide-react";
+import { Activity, ArrowUp, ArrowDown, Minus, RefreshCw, Wifi, WifiOff, Clock, Key, TrendingUp, Loader2, Eye, ChevronDown, Settings2, AlertTriangle, Badge, History } from "lucide-react";
 import { probeAllApis, APIs, type APIInfo, type APIHealthMetrics, type HealthStatus } from "@/data/apiData";
 import ApiKeyManager, { type UserApiKey } from "./ApiKeyManager";
 import ApiRegistryManager, { type CustomAPI } from "./ApiRegistryManager";
+import ApiStatusBadge from "./ApiStatusBadge";
 import ApiTrendChart, { type TrendPoint } from "./ApiTrendChart";
 import { useAnimatedCounter } from "@/hooks/useAnimatedCounter";
 import { useHealthStore } from "@/hooks/useHealthStore";
@@ -136,7 +137,7 @@ const ApiCard = memo(function ApiCard({ m, hasKey, responseData, expandedPreview
           </div>
           <LatencyBar latency={m.latencyMs} />
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Uptime</span>
+            <span className="text-muted-foreground">24h Uptime</span>
             <span className="font-mono text-foreground">
               {m.uptime24h > 0 ? `${m.uptime24h.toFixed(1)}%` : '—'}
             </span>
@@ -198,14 +199,16 @@ export default function HealthDashboard() {
       return saved ? JSON.parse(saved) : [];
     } catch { return []; }
   });
-  const [disabledApiIds, setDisabledApiIds] = useState<string[]>(() => {
+  const [disabledApiIds, setDisabledApiIds] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem("devpulse_disabled_apis");
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch { return new Set(); }
   });
   const [showKeyManager, setShowKeyManager] = useState(false);
   const [showRegistryManager, setShowRegistryManager] = useState(false);
+  const [showStatusBadge, setShowStatusBadge] = useState(false);
+  const [incidents, setIncidents] = useState<{ apiId: string; apiName: string; at: number }[]>([]);
   const [showTrends, setShowTrends] = useState(false);
   const [expandedTrend, setExpandedTrend] = useState<string | null>(null);
   const [trendData, setTrendData] = useState<Record<string, TrendPoint[]>>({});
@@ -236,10 +239,13 @@ export default function HealthDashboard() {
   // Compute active API list (built-in + custom, minus disabled)
   const activeApis = useMemo<APIInfo[]>(() => {
     const all: APIInfo[] = [...APIs, ...customApis];
-    return all.filter(a => !disabledApiIds.includes(a.id));
+    return all.filter(a => !disabledApiIds.has(a.id));
   }, [customApis, disabledApiIds]);
 
   const runProbe = useCallback(async () => {
+    const { isProbing: currentlyProbing } = useHealthStore.getState();
+    if (currentlyProbing) return;
+    
     setIsProbing(true);
     try {
       const keyMap = getUserKeyMap();
@@ -248,11 +254,23 @@ export default function HealthDashboard() {
       const updatedResults = results.map(m => {
         const history = uptimeHistoryRef.current[m.apiId] || [];
         history.push(m.status === 'healthy' || m.status === 'degraded');
-        if (history.length > 100) history.shift();
+        if (history.length > 288) history.shift(); // ~24h at 5min intervals
         uptimeHistoryRef.current[m.apiId] = history;
-        const uptime = (history.filter(Boolean).length / history.length) * 100;
+        const uptime = history.length > 0 ? (history.filter(Boolean).length / history.length) * 100 : 0;
         return { ...m, uptime24h: uptime };
       });
+
+      try {
+        localStorage.setItem("devpulse_uptime_history", JSON.stringify(uptimeHistoryRef.current));
+        if (results.some(m => m.status === 'down')) {
+          const incidents = JSON.parse(localStorage.getItem("devpulse_incidents") || "[]");
+          results.filter(m => m.status === 'down').forEach(m => {
+            incidents.push({ apiId: m.apiId, apiName: m.apiName, at: Date.now() });
+          });
+          if (incidents.length > 100) incidents.splice(0, incidents.length - 100);
+          localStorage.setItem("devpulse_incidents", JSON.stringify(incidents));
+        }
+      } catch { /* ignore */ }
 
       setMetrics(updatedResults);
       probeCountRef.current += 1;
@@ -269,38 +287,40 @@ export default function HealthDashboard() {
       trendDataRef.current = updated;
       setTrendData({ ...updated });
 
-      // Capture response previews
+      // Capture response previews (with timeout to avoid blocking)
       const previews: Record<string, any> = {};
-      await Promise.allSettled(
-        activeApis.slice(0, 8).map(async (api) => {
-          try {
-            let url = api.testUrl;
-            if (api.requiresKey && keyMap[api.id]) {
-              url = url.replace(/api_key=[^&]+/, `api_key=${encodeURIComponent(keyMap[api.id])}`);
+      const previewPromises = activeApis.slice(0, 6).map(async (api) => {
+        try {
+          let url = api.testUrl;
+          if (api.requiresKey && keyMap[api.id]) {
+            url = url.replace(/api_key=[^&]+/, `api_key=${encodeURIComponent(keyMap[api.id])}`);
+          }
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3000);
+          const res = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeout);
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+              previews[api.id] = data.slice(0, 1);
+            } else if (typeof data === "object") {
+              const keys = Object.keys(data).slice(0, 5);
+              const small: any = {};
+              keys.forEach(k => {
+                const val = data[k];
+                if (typeof val === "string" && val.length > 100) small[k] = val.slice(0, 100) + "...";
+                else if (Array.isArray(val)) small[k] = `[${val.length} items]`;
+                else small[k] = val;
+              });
+              previews[api.id] = small;
             }
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);
-            const res = await fetch(url, { signal: controller.signal });
-            clearTimeout(timeout);
-            if (res.ok) {
-              const data = await res.json();
-              if (Array.isArray(data)) {
-                previews[api.id] = data.slice(0, 1);
-              } else if (typeof data === "object") {
-                const keys = Object.keys(data).slice(0, 5);
-                const small: any = {};
-                keys.forEach(k => {
-                  const val = data[k];
-                  if (typeof val === "string" && val.length > 100) small[k] = val.slice(0, 100) + "...";
-                  else if (Array.isArray(val)) small[k] = `[${val.length} items]`;
-                  else small[k] = val;
-                });
-                previews[api.id] = small;
-              }
-            }
-          } catch { /* skip */ }
-        })
-      );
+          }
+        } catch { /* skip */ }
+      });
+      await Promise.race([
+        Promise.allSettled(previewPromises),
+        new Promise(resolve => setTimeout(resolve, 2000))
+      ]);
       if (Object.keys(previews).length > 0) {
         setResponseData(prev => ({ ...prev, ...previews }));
       }
@@ -317,23 +337,29 @@ export default function HealthDashboard() {
     return () => clearInterval(interval);
   }, [runProbe]);
 
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem("devpulse_incidents") || "[]");
+      const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+      setIncidents(raw.filter((i: { at: number }) => i.at > cutoff).slice(-20).reverse());
+    } catch { /* ignore */ }
+  }, [metrics]);
+
   const handleAddKey = (key: UserApiKey) => setApiKeys(prev => [...prev, key]);
   const handleRemoveKey = (id: string) => setApiKeys(prev => prev.filter(k => k.id !== id));
 
   // Registry handlers
   const handleToggleApi = useCallback((id: string) => {
     setDisabledApiIds(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(item => item !== id);
-      } else {
-        return [...prev, id];
-      }
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
     });
   }, []);
   const handleAddCustomApi = useCallback((api: CustomAPI) => setCustomApis(prev => [...prev, api]), []);
   const handleRemoveCustomApi = useCallback((id: string) => {
     setCustomApis(prev => prev.filter(a => a.id !== id));
-    setDisabledApiIds(prev => prev.filter(item => item !== id));
+    setDisabledApiIds(prev => { const next = new Set(prev); next.delete(id); return next; });
   }, []);
   const handleEditCustomApi = useCallback((api: CustomAPI) => {
     setCustomApis(prev => prev.map(a => a.id === api.id ? api : a));
@@ -343,7 +369,7 @@ export default function HealthDashboard() {
     setExpandedPreview(prev => prev === id ? null : id);
   }, []);
 
-  const { filtered, healthy, degraded, down, avgLatency } = useMemo(() => {
+  const { filtered, healthy, degraded, down, avgLatency, latencyBenchmark } = useMemo(() => {
     const healthy = metrics.filter(m => m.status === "healthy").length;
     const degraded = metrics.filter(m => m.status === "degraded").length;
     const down = metrics.filter(m => m.status === "down").length;
@@ -352,7 +378,16 @@ export default function HealthDashboard() {
       ? Math.round(withLatency.reduce((s, m) => s + m.latencyMs, 0) / withLatency.length)
       : 0;
     const filtered = filter === "all" ? metrics : metrics.filter(m => m.status === filter);
-    return { filtered, healthy, degraded, down, avgLatency };
+
+    const sorted = [...withLatency].map(m => m.latencyMs).sort((a, b) => a - b);
+    const median = sorted.length > 0 ? sorted[Math.floor(sorted.length / 2)] : 0;
+    const latencyBenchmark = median > 0 ? {
+      median,
+      fast: withLatency.filter(m => m.latencyMs < median * 0.6),
+      slow: withLatency.filter(m => m.latencyMs > median * 1.5),
+    } : null;
+
+    return { filtered, healthy, degraded, down, avgLatency, latencyBenchmark };
   }, [metrics, filter]);
 
   const hasData = metrics.length > 0;
@@ -384,6 +419,15 @@ export default function HealthDashboard() {
               )}
             </div>
             <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => metrics.length > 0 && setShowStatusBadge(true)}
+                disabled={metrics.length === 0}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl glass-card text-sm font-medium text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                title={metrics.length === 0 ? "Run a probe first" : "Get embeddable status badge"}
+              >
+                <Badge className="w-4 h-4" />
+                Status Badge
+              </button>
               <button
                 onClick={() => setShowTrends(!showTrends)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
@@ -435,6 +479,108 @@ export default function HealthDashboard() {
           <AnimatedStat label="Avg Latency" value={`${avgLatency}ms`} icon={Clock} color="text-secondary" borderColor="border-secondary/15" />
         </div>
 
+        {/* Incident Timeline - last 24h down events */}
+        {incidents.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 glass-card rounded-xl p-4 border border-status-down/20"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <History className="w-4 h-4 text-status-down" />
+              <h3 className="text-sm font-semibold text-foreground">Incident timeline (24h)</h3>
+            </div>
+            <div className="space-y-1.5 max-h-32 overflow-y-auto">
+              {incidents.map((inc, i) => (
+                <div key={`${inc.apiId}-${inc.at}`} className="flex items-center gap-2 text-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-status-down shrink-0" />
+                  <span className="text-foreground font-medium">{inc.apiName}</span>
+                  <span className="text-muted-foreground">down at</span>
+                  <span className="font-mono text-muted-foreground">
+                    {new Date(inc.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Latency Benchmark - fast vs slow vs median */}
+        {latencyBenchmark && (latencyBenchmark.fast.length > 0 || latencyBenchmark.slow.length > 0) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 glass-card rounded-xl p-4 border border-border"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="w-4 h-4 text-secondary" />
+              <h3 className="text-sm font-semibold text-foreground">Latency benchmark (median: {latencyBenchmark.median}ms)</h3>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              {latencyBenchmark.fast.length > 0 && (
+                <div>
+                  <p className="text-xs text-status-healthy font-medium mb-1">⚡ Fast (&lt;{Math.round(latencyBenchmark.median * 0.6)}ms)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {latencyBenchmark.fast.map(m => (
+                      <span key={m.apiId} className="px-2 py-0.5 rounded-md bg-status-healthy/15 text-status-healthy text-xs font-mono">
+                        {m.apiName} {m.latencyMs}ms
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {latencyBenchmark.slow.length > 0 && (
+                <div>
+                  <p className="text-xs text-status-degraded font-medium mb-1">🐢 Slow (&gt;{Math.round(latencyBenchmark.median * 1.5)}ms)</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {latencyBenchmark.slow.map(m => (
+                      <span key={m.apiId} className="px-2 py-0.5 rounded-md bg-status-degraded/15 text-status-degraded text-xs font-mono">
+                        {m.apiName} {m.latencyMs}ms
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Rate Limit Watch - APIs with rate limit data */}
+        {metrics.some(m => m.rateLimitRemaining !== null) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 glass-card rounded-xl p-4 border border-border"
+          >
+            <div className="flex items-center gap-2 mb-3">
+              <Key className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground">Rate Limit Watch</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {metrics
+                .filter(m => m.rateLimitRemaining !== null)
+                .map(m => {
+                  const remaining = m.rateLimitRemaining!;
+                  const isLow = remaining < 100;
+                  return (
+                    <div
+                      key={m.apiId}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-mono ${
+                        isLow ? "bg-status-down/15 border border-status-down/30" : "bg-muted/20"
+                      }`}
+                    >
+                      <span className="text-foreground">{m.apiName}</span>
+                      <span className={isLow ? "text-status-down font-semibold" : "text-muted-foreground"}>
+                        {remaining} left
+                      </span>
+                      {isLow && <AlertTriangle className="w-3.5 h-3.5 text-status-down" />}
+                    </div>
+                  );
+                })}
+            </div>
+          </motion.div>
+        )}
+
         {/* Trend Charts */}
         <AnimatePresence>
           {showTrends && (
@@ -458,7 +604,7 @@ export default function HealthDashboard() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {APIs.map(api => (
+                  {activeApis.map(api => (
                     <ApiTrendChart
                       key={api.id}
                       apiName={api.name}
@@ -538,6 +684,12 @@ export default function HealthDashboard() {
         isOpen={showRegistryManager}
         onClose={() => setShowRegistryManager(false)}
       />
+
+      <AnimatePresence>
+        {showStatusBadge && metrics.length > 0 && (
+          <ApiStatusBadge metrics={metrics} onClose={() => setShowStatusBadge(false)} />
+        )}
+      </AnimatePresence>
     </section>
   );
 }

@@ -6,18 +6,23 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (data: { name: string; description: string; framework: string }) => void;
+  /** Max agents allowed for current plan (1 free, 10 pro, 50 team) */
+  maxAgents: number;
+  /** Current agent count */
+  currentAgentCount: number;
 }
 
 const frameworks = ["LangChain", "CrewAI", "AutoGPT", "OpenAI Agents", "Custom"];
 
-export default function AddAgentModal({ isOpen, onClose, onAdd }: Props) {
+export default function AddAgentModal({ isOpen, onClose, onAdd, maxAgents, currentAgentCount }: Props) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [framework, setFramework] = useState("");
+  const atLimit = currentAgentCount >= maxAgents;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || atLimit) return;
     onAdd({ name: name.trim(), description: description.trim(), framework });
     setName("");
     setDescription("");
@@ -45,6 +50,11 @@ export default function AddAgentModal({ isOpen, onClose, onAdd }: Props) {
               <div className="flex items-center gap-2">
                 <Bot className="w-5 h-5 text-primary" />
                 <h3 className="text-lg font-semibold font-serif text-foreground">Add Agent</h3>
+                {atLimit && (
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-status-down/20 text-status-down">
+                    Limit reached ({currentAgentCount}/{maxAgents})
+                  </span>
+                )}
               </div>
               <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
@@ -93,10 +103,16 @@ export default function AddAgentModal({ isOpen, onClose, onAdd }: Props) {
               </div>
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity"
+                disabled={atLimit}
+                className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Create Agent
+                {atLimit ? "Upgrade to add more agents" : "Create Agent"}
               </button>
+              {atLimit && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Free: no AgentGuard. Pro: 10 agents. Team: 50 agents. Upgrade to add agents.
+                </p>
+              )}
             </form>
           </motion.div>
         </motion.div>
