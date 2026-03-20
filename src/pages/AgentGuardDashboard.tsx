@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import AgentCostChart from "@/components/agentguard/AgentCostChart";
 import AgentFlowView from "@/components/agentguard/AgentFlowView";
@@ -81,7 +81,7 @@ type TabId = typeof tabs[number]["id"];
 
 export default function AgentGuardDashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -91,8 +91,8 @@ export default function AgentGuardDashboard() {
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) router.push("/agentguard/auth");
-  }, [user, authLoading, router]);
+    if (!authLoading && !user) navigate("/agentguard/auth");
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (!user) return;
@@ -222,7 +222,7 @@ export default function AgentGuardDashboard() {
       <nav className="border-b border-border px-4 sm:px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push("/")} className="text-muted-foreground hover:text-foreground transition-colors">
+            <button onClick={() => navigate("/")} className="text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <Shield className="w-6 h-6 text-primary" />
@@ -231,11 +231,11 @@ export default function AgentGuardDashboard() {
             </h1>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-            <button onClick={() => router.push("/agentguard/docs")} className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
+            <button onClick={() => navigate("/agentguard/docs")} className="text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5">
               <BookOpen className="w-4 h-4" />
               <span className="hidden sm:inline">SDK Docs</span>
             </button>
-            <button onClick={() => router.push("/agentguard/settings")} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
+            <button onClick={() => navigate("/agentguard/settings")} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
               Settings
             </button>
             <ThemeToggle />
@@ -337,7 +337,7 @@ export default function AgentGuardDashboard() {
                     return (
                       <motion.div key={agent.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                         className="glass-card-hover rounded-xl p-5 border border-border cursor-pointer group"
-                        onClick={() => router.push(`/agentguard/agent/${agent.id}`)}>
+                        onClick={() => navigate(`/agentguard/agent/${agent.id}`)}>
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className={`w-2.5 h-2.5 rounded-full ${sc.dot} ${agent.status === "active" ? "animate-pulse-soft" : ""}`} />

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { useParams } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Shield, Bot, Save, Loader2, Activity, DollarSign,
   Zap, Clock, Settings, BarChart3, ScrollText
@@ -41,7 +40,7 @@ type LogEntry = {
 export default function AgentGuardAgentDetail() {
   const { agentId } = useParams<{ agentId: string }>();
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [agent, setAgent] = useState<Agent | null>(null);
@@ -62,7 +61,7 @@ export default function AgentGuardAgentDetail() {
   });
 
   useEffect(() => {
-    if (!authLoading && !user) router.push("/agentguard/auth");
+    if (!authLoading && !user) navigate("/agentguard/auth");
   }, [user, authLoading]);
 
   useEffect(() => {
@@ -139,7 +138,7 @@ export default function AgentGuardAgentDetail() {
         <div className="text-center">
           <Bot className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-foreground">Agent not found</h2>
-          <button onClick={() => router.push("/agentguard")} className="mt-4 text-sm text-primary hover:underline">← Back to dashboard</button>
+          <button onClick={() => navigate("/agentguard")} className="mt-4 text-sm text-primary hover:underline">← Back to dashboard</button>
         </div>
       </div>
     );
@@ -155,7 +154,7 @@ export default function AgentGuardAgentDetail() {
     <div className="min-h-screen bg-background">
       <nav className="border-b border-border px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <button onClick={() => router.push("/agentguard")} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={() => navigate("/agentguard")} className="text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <Shield className="w-5 h-5 text-primary" />

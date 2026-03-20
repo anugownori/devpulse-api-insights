@@ -1,67 +1,17 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const ALLOWED_ORIGINS = new Set([
-  "http://localhost:5173",
-  "http://localhost:3000",
-  "https://devpluse.in",
-]);
-
-const getCorsHeaders = (origin: string | null) => ({
-  "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin || "") ? origin! : "",
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-});
-
-const PRIVATE_IP_PATTERNS = [
-  /^127\./,
-  /^10\./,
-  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
-  /^192\.168\./,
-  /^169\.254\./,
-  /^0\./,
-  /^224\./,
-  /^240\./,
-  /^localhost$/i,
-  /^.*\.local$/i,
-  /^::1$/,
-  /^[fF][cCdD][0-9a-fA-F]{2}:/,
-  /^[fF][eE][89aAbB][0-9a-fA-F]:/,
-];
-
-const isPrivateIP = (host: string): boolean => {
-  for (const pattern of PRIVATE_IP_PATTERNS) {
-    if (pattern.test(host)) return true;
-  }
-  return false;
-};
-
-const isValidWebhookUrl = (urlString: string): { valid: boolean; reason?: string } => {
-  try {
-    const url = new URL(urlString);
-    
-    if (!["http:", "https:"].includes(url.protocol)) {
-      return { valid: false, reason: "Only HTTP and HTTPS protocols allowed" };
-    }
-    
-    if (isPrivateIP(url.hostname)) {
-      return { valid: false, reason: "Private IP addresses are not allowed" };
-    }
-    
-    return { valid: true };
-  } catch {
-    return { valid: false, reason: "Invalid URL format" };
-  }
 };
 
 Deno.serve(async (req) => {
-  const origin = req.headers.get("Origin");
-  const corsHeaders = getCorsHeaders(origin);
-
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Verify JWT
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -92,6 +42,7 @@ Deno.serve(async (req) => {
 
     const { alert_type, title, message, severity } = await req.json();
 
+    // Only fetch webhooks belonging to the authenticated user
     const { data: webhooks } = await supabase
       .from("webhook_configs")
       .select("*")
@@ -107,12 +58,6 @@ Deno.serve(async (req) => {
     let sent = 0;
     for (const wh of webhooks) {
       if (!wh.events.includes(alert_type)) continue;
-
-      const urlValidation = isValidWebhookUrl(wh.url);
-      if (!urlValidation.valid) {
-        console.error(`Skipping webhook ${wh.id}: ${urlValidation.reason}`);
-        continue;
-      }
 
       let payload: Record<string, unknown>;
 

@@ -240,9 +240,6 @@ export default function HealthDashboard() {
   }, [customApis, disabledApiIds]);
 
   const runProbe = useCallback(async () => {
-    const { isProbing: currentlyProbing } = useHealthStore.getState();
-    if (currentlyProbing) return;
-    
     setIsProbing(true);
     try {
       const keyMap = getUserKeyMap();
@@ -272,40 +269,38 @@ export default function HealthDashboard() {
       trendDataRef.current = updated;
       setTrendData({ ...updated });
 
-      // Capture response previews (with timeout to avoid blocking)
+      // Capture response previews
       const previews: Record<string, any> = {};
-      const previewPromises = activeApis.slice(0, 6).map(async (api) => {
-        try {
-          let url = api.testUrl;
-          if (api.requiresKey && keyMap[api.id]) {
-            url = url.replace(/api_key=[^&]+/, `api_key=${encodeURIComponent(keyMap[api.id])}`);
-          }
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 3000);
-          const res = await fetch(url, { signal: controller.signal });
-          clearTimeout(timeout);
-          if (res.ok) {
-            const data = await res.json();
-            if (Array.isArray(data)) {
-              previews[api.id] = data.slice(0, 1);
-            } else if (typeof data === "object") {
-              const keys = Object.keys(data).slice(0, 5);
-              const small: any = {};
-              keys.forEach(k => {
-                const val = data[k];
-                if (typeof val === "string" && val.length > 100) small[k] = val.slice(0, 100) + "...";
-                else if (Array.isArray(val)) small[k] = `[${val.length} items]`;
-                else small[k] = val;
-              });
-              previews[api.id] = small;
+      await Promise.allSettled(
+        activeApis.slice(0, 8).map(async (api) => {
+          try {
+            let url = api.testUrl;
+            if (api.requiresKey && keyMap[api.id]) {
+              url = url.replace(/api_key=[^&]+/, `api_key=${encodeURIComponent(keyMap[api.id])}`);
             }
-          }
-        } catch { /* skip */ }
-      });
-      await Promise.race([
-        Promise.allSettled(previewPromises),
-        new Promise(resolve => setTimeout(resolve, 2000))
-      ]);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+            const res = await fetch(url, { signal: controller.signal });
+            clearTimeout(timeout);
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data)) {
+                previews[api.id] = data.slice(0, 1);
+              } else if (typeof data === "object") {
+                const keys = Object.keys(data).slice(0, 5);
+                const small: any = {};
+                keys.forEach(k => {
+                  const val = data[k];
+                  if (typeof val === "string" && val.length > 100) small[k] = val.slice(0, 100) + "...";
+                  else if (Array.isArray(val)) small[k] = `[${val.length} items]`;
+                  else small[k] = val;
+                });
+                previews[api.id] = small;
+              }
+            }
+          } catch { /* skip */ }
+        })
+      );
       if (Object.keys(previews).length > 0) {
         setResponseData(prev => ({ ...prev, ...previews }));
       }

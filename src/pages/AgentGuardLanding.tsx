@@ -3,7 +3,7 @@ import {
   Shield, Bot, DollarSign, Zap, Activity, Lock, Users, BarChart3,
   ArrowRight, CheckCircle2, Star, ChevronRight
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 
 const features = [
   { icon: Bot, title: "Agent Monitoring", desc: "Track every AI agent's actions, costs, and API calls in real-time with live dashboards." },
@@ -39,7 +39,7 @@ const testimonials = [
 ];
 
 export default function AgentGuardLanding() {
-  const router = useRouter();
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,11 +53,11 @@ export default function AgentGuardLanding() {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => router.push("/agentguard/auth")}
+            <button onClick={() => navigate("/agentguard/auth")}
               className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Sign In
             </button>
-            <button onClick={() => router.push("/agentguard/auth")}
+            <button onClick={() => navigate("/agentguard/auth")}
               className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity">
               Get Started Free
             </button>
@@ -81,11 +81,11 @@ export default function AgentGuardLanding() {
               Real-time cost tracking, security guardrails, and performance analytics for every AI agent you deploy. Stop runaway costs before they happen.
             </p>
             <div className="flex items-center justify-center gap-4 flex-wrap">
-              <button onClick={() => router.push("/agentguard/auth")}
+              <button onClick={() => navigate("/agentguard/auth")}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity">
                 Start Free <ArrowRight className="w-4 h-4" />
               </button>
-              <button onClick={() => router.push("/agentguard/docs")}
+              <button onClick={() => navigate("/agentguard/docs")}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-foreground font-medium hover:border-primary/30 transition-all">
                 View SDK Docs <ChevronRight className="w-4 h-4" />
               </button>
@@ -151,7 +151,7 @@ export default function AgentGuardLanding() {
                   </li>
                 ))}
               </ul>
-              <button onClick={() => router.push("/agentguard/auth")}
+              <button onClick={() => navigate("/agentguard/auth")}
                 className={`w-full py-2.5 rounded-xl text-sm font-medium transition-all ${
                   plan.highlighted
                     ? "bg-primary text-primary-foreground hover:opacity-90"
@@ -202,7 +202,7 @@ export default function AgentGuardLanding() {
             <p className="text-muted-foreground mb-6 max-w-lg mx-auto">
               Join hundreds of teams using AgentGuard to monitor costs, catch security issues, and ship AI products with confidence.
             </p>
-            <button onClick={() => router.push("/agentguard/auth")}
+            <button onClick={() => navigate("/agentguard/auth")}
               className="px-8 py-3 rounded-xl bg-primary text-primary-foreground font-medium hover:opacity-90 transition-opacity">
               Get Started Free
             </button>
@@ -218,8 +218,8 @@ export default function AgentGuardLanding() {
             <span className="text-sm font-serif text-foreground">AgentGuard</span>
           </div>
           <div className="flex items-center gap-6 text-sm text-muted-foreground">
-            <button onClick={() => router.push("/agentguard/docs")} className="hover:text-foreground transition-colors">Docs</button>
-            <button onClick={() => router.push("/agentguard/auth")} className="hover:text-foreground transition-colors">Sign In</button>
+            <button onClick={() => navigate("/agentguard/docs")} className="hover:text-foreground transition-colors">Docs</button>
+            <button onClick={() => navigate("/agentguard/auth")} className="hover:text-foreground transition-colors">Sign In</button>
           </div>
           <p className="text-xs text-muted-foreground">© 2026 AgentGuard. All rights reserved.</p>
         </div>

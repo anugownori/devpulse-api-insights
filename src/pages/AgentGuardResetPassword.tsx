@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Shield, Lock, ArrowRight, Loader2, CheckCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AgentGuardResetPassword() {
@@ -10,7 +10,7 @@ export default function AgentGuardResetPassword() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const router = useRouter();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -36,7 +36,7 @@ export default function AgentGuardResetPassword() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       setSuccess(true);
-      setTimeout(() => router.push("/agentguard"), 2000);
+      setTimeout(() => navigate("/agentguard"), 2000);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {

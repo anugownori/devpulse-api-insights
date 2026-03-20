@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Shield, User, Save, Loader2, Crown, Zap, Bot, CreditCard, ExternalLink } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -25,7 +25,7 @@ const plans = [
 export default function AgentGuardSettings() {
   const { user, loading: authLoading } = useAuth();
   const { tier, subscribed, subscriptionEnd, loading: subLoading, checkout, manageSubscription, refresh } = useSubscription();
-  const router = useRouter();
+  const navigate = useNavigate();
   const { toast } = useToast();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -35,7 +35,7 @@ export default function AgentGuardSettings() {
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) router.push("/agentguard/auth");
+    if (!authLoading && !user) navigate("/agentguard/auth");
   }, [user, authLoading]);
 
   useEffect(() => {
@@ -106,7 +106,7 @@ export default function AgentGuardSettings() {
     <div className="min-h-screen bg-background">
       <nav className="border-b border-border px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
-          <button onClick={() => router.push("/agentguard")} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={() => navigate("/agentguard")} className="text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <Shield className="w-5 h-5 text-primary" />

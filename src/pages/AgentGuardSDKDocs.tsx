@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Shield, ArrowLeft, Copy, Check, Code, Terminal, BookOpen, Zap } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 
 const codeExamples = {
   python: {
@@ -150,7 +150,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export default function AgentGuardSDKDocs() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<keyof typeof codeExamples>("python");
 
   const example = codeExamples[activeTab];
@@ -159,7 +159,7 @@ export default function AgentGuardSDKDocs() {
     <div className="min-h-screen bg-background">
       <nav className="border-b border-border px-6 py-4">
         <div className="max-w-4xl mx-auto flex items-center gap-3">
-          <button onClick={() => router.push("/agentguard")} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={() => navigate("/agentguard")} className="text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <Shield className="w-6 h-6 text-primary" />
