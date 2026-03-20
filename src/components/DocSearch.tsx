@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, ExternalLink, BookOpen, FileText, Globe, Loader2 } from "lucide-react";
+import { Search, ExternalLink, BookOpen, Globe, Loader2, Zap, Code } from "lucide-react";
+import { APIs } from "@/data/apiData";
 
 interface DocResult {
   source: string;
@@ -10,6 +11,102 @@ interface DocResult {
   snippet: string;
   url: string;
   icon: typeof BookOpen;
+  category?: string;
+}
+
+const popularSearches = [
+  { term: "ChatGPT", apis: ["groq", "huggingface"] },
+  { term: "Cloud", apis: ["openweather", "openstreetmap", "openchargemap"] },
+  { term: "AI", apis: ["groq", "huggingface", "semanticscholar"] },
+  { term: "Weather", apis: ["openmeteo", "openweather", "noaa"] },
+  { term: "Maps", apis: ["openstreetmap", "opencage", "opentripmap"] },
+  { term: "Movies", apis: ["tmdb", "omdb"] },
+  { term: "Finance", apis: ["alphavantage", "coinpaprika"] },
+  { term: "Space", apis: ["nasa", "spacex", "opensky"] },
+  { term: "Games", apis: ["rawg"] },
+  { term: "Books", apis: ["openlibrary"] },
+  { term: "Health", apis: ["who", "openaq"] },
+  { term: "Travel", apis: ["opentripmap", "openstreetmap"] },
+];
+
+function searchApiDocs(query: string): DocResult[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return [];
+
+  const results: DocResult[] = [];
+
+  const matchedPopular = popularSearches.find(p => 
+    p.term.toLowerCase().includes(q) || q.includes(p.term.toLowerCase())
+  );
+
+  if (matchedPopular) {
+    for (const apiId of matchedPopular.apis) {
+      const api = APIs.find(a => a.id === apiId);
+      if (api) {
+        results.push({
+          source: "DEVPULSE API",
+          title: api.name,
+          snippet: api.description,
+          url: `https://devpulse.app/agentguard/docs#${api.id}`,
+          icon: Zap,
+          category: api.category,
+        });
+      }
+    }
+  }
+
+  const directMatch = APIs.find(a => 
+    a.name.toLowerCase().includes(q) || 
+    a.id.toLowerCase().includes(q) ||
+    a.category.toLowerCase().includes(q) ||
+    a.description.toLowerCase().includes(q)
+  );
+
+  if (directMatch) {
+    const exists = results.some(r => r.title === directMatch.name);
+    if (!exists) {
+      results.unshift({
+        source: "DEVPULSE API",
+        title: directMatch.name,
+        snippet: directMatch.description,
+        url: `https://devpulse.app/agentguard/docs#${directMatch.id}`,
+        icon: Zap,
+        category: directMatch.category,
+      });
+    }
+  }
+
+  const categoryMatches = APIs.filter(a => 
+    a.category.toLowerCase().includes(q) && a.id !== directMatch?.id
+  );
+  for (const api of categoryMatches.slice(0, 3)) {
+    const exists = results.some(r => r.title === api.name);
+    if (!exists) {
+      results.push({
+        source: "DEVPULSE API",
+        title: api.name,
+        snippet: api.description,
+        url: `https://devpulse.app/agentguard/docs#${api.id}`,
+        icon: Zap,
+        category: api.category,
+      });
+    }
+  }
+
+  if (results.length === 0) {
+    for (const api of APIs.slice(0, 5)) {
+      results.push({
+        source: "DEVPULSE API",
+        title: api.name,
+        snippet: api.description,
+        url: `https://devpulse.app/agentguard/docs#${api.id}`,
+        icon: Zap,
+        category: api.category,
+      });
+    }
+  }
+
+  return results.slice(0, 8);
 }
 
 async function searchWikipedia(query: string): Promise<DocResult[]> {
@@ -30,33 +127,15 @@ async function searchWikipedia(query: string): Promise<DocResult[]> {
   } catch { return []; }
 }
 
-async function searchSemanticScholar(query: string): Promise<DocResult[]> {
-  try {
-    const res = await fetch(
-      `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=3&fields=title,abstract,url`
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data.data || [])
-      .filter((p: any) => p.title)
-      .map((p: any) => ({
-        source: "Semantic Scholar",
-        title: p.title,
-        snippet: p.abstract || "No abstract available",
-        url: p.url || `https://www.semanticscholar.org/paper/${p.paperId}`,
-        icon: FileText,
-      }));
-  } catch { return []; }
-}
-
 async function searchDuckDuckGo(query: string): Promise<DocResult[]> {
   try {
     const res = await fetch(
-      `https://api.duckduckgo.com/?q=${encodeURIComponent(query + " API documentation")}&format=json`
+      `https://api.duckduckgo.com/?q=${encodeURIComponent(query + " API developer documentation")}&format=json`
     );
     if (!res.ok) return [];
     const data = await res.json();
     const results: DocResult[] = [];
+    
     if (data.Abstract) {
       results.push({
         source: "DuckDuckGo",
@@ -66,7 +145,8 @@ async function searchDuckDuckGo(query: string): Promise<DocResult[]> {
         icon: BookOpen,
       });
     }
-    for (const topic of (data.RelatedTopics || []).slice(0, 3)) {
+    
+    for (const topic of (data.RelatedTopics || []).slice(0, 2)) {
       if (topic?.Text) {
         results.push({
           source: "DuckDuckGo",
@@ -86,31 +166,38 @@ export default function DocSearch() {
   const [results, setResults] = useState<DocResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchMode, setSearchMode] = useState<"api" | "web">("api");
 
   const handleSearch = async () => {
     if (!query.trim()) return;
     setIsSearching(true);
     setHasSearched(true);
 
-    try {
-      const [wiki, scholar, ddg] = await Promise.allSettled([
-        searchWikipedia(query),
-        searchSemanticScholar(query),
-        searchDuckDuckGo(query),
-      ]);
-
-      const all: DocResult[] = [
-        ...(wiki.status === "fulfilled" ? wiki.value : []),
-        ...(scholar.status === "fulfilled" ? scholar.value : []),
-        ...(ddg.status === "fulfilled" ? ddg.value : []),
-      ];
-      setResults(all);
-    } catch {
-      setResults([]);
-    } finally {
+    if (searchMode === "api") {
+      const apiResults = searchApiDocs(query);
+      setResults(apiResults);
       setIsSearching(false);
+    } else {
+      try {
+        const [wiki, ddg] = await Promise.allSettled([
+          searchWikipedia(query),
+          searchDuckDuckGo(query),
+        ]);
+
+        const all: DocResult[] = [
+          ...(wiki.status === "fulfilled" ? wiki.value : []),
+          ...(ddg.status === "fulfilled" ? ddg.value : []),
+        ];
+        setResults(all);
+      } catch {
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
     }
   };
+
+  const suggestions = ["ChatGPT", "Weather API", "OpenStreetMap", "TMDB", "NASA", "Groq AI", "Machine Learning"];
 
   return (
     <section id="docs" className="py-24 px-6">
@@ -130,17 +217,39 @@ export default function DocSearch() {
             </h2>
           </div>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto font-light">
-            Live documentation search across Wikipedia, Semantic Scholar, and DuckDuckGo — all real time.
+            Search our API database or the web for documentation.
           </p>
         </motion.div>
 
-        {/* Search bar */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="relative mb-10"
         >
+          <div className="flex gap-2 mb-4 justify-center">
+            <button
+              onClick={() => setSearchMode("api")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                searchMode === "api"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <Zap className="w-4 h-4 inline mr-1" /> API Database
+            </button>
+            <button
+              onClick={() => setSearchMode("web")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                searchMode === "web"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <Globe className="w-4 h-4 inline mr-1" /> Web Search
+            </button>
+          </div>
+
           <div className="glass-card gradient-border rounded-2xl flex items-center overflow-hidden float-card">
             <Search className="w-5 h-5 text-muted-foreground ml-5" />
             <input
@@ -148,7 +257,7 @@ export default function DocSearch() {
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleSearch()}
-              placeholder="Search API docs... (try: air quality, earthquake, machine learning)"
+              placeholder={searchMode === "api" ? "Search APIs... (try: ChatGPT, Weather, Maps)" : "Search web... (try: API documentation)"}
               className="flex-1 px-4 py-4 bg-transparent text-foreground placeholder:text-muted-foreground outline-none text-lg"
             />
             <button
@@ -160,9 +269,8 @@ export default function DocSearch() {
             </button>
           </div>
 
-          {/* Quick suggestions */}
-          <div className="flex gap-2 mt-4 justify-center">
-            {["air quality", "earthquake", "machine learning", "bitcoin"].map(s => (
+          <div className="flex gap-2 mt-4 justify-center flex-wrap">
+            {suggestions.map(s => (
               <button
                 key={s}
                 onClick={() => { setQuery(s); }}
@@ -174,7 +282,6 @@ export default function DocSearch() {
           </div>
         </motion.div>
 
-        {/* Results */}
         <AnimatePresence mode="wait">
           {isSearching ? (
             <motion.div
@@ -185,7 +292,9 @@ export default function DocSearch() {
               className="text-center py-12"
             >
               <Loader2 className="w-8 h-8 text-primary animate-spin mx-auto mb-4" />
-              <p className="text-muted-foreground">Searching live across multiple sources...</p>
+              <p className="text-muted-foreground">
+                {searchMode === "api" ? "Searching API database..." : "Searching the web..."}
+              </p>
             </motion.div>
           ) : (
             <motion.div key="results" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
@@ -205,6 +314,9 @@ export default function DocSearch() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-mono text-primary/60">{r.source}</span>
+                        {r.category && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{r.category}</span>
+                        )}
                       </div>
                       <h3 className="font-semibold text-foreground mb-1">{r.title}</h3>
                       <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{r.snippet}</p>
@@ -215,6 +327,12 @@ export default function DocSearch() {
               ))}
               {hasSearched && results.length === 0 && !isSearching && (
                 <p className="text-center text-muted-foreground py-12">No results found. Try a different query.</p>
+              )}
+              {!hasSearched && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Code className="w-12 h-12 mx-auto mb-4 opacity-30" />
+                  <p>Search for APIs, SDKs, or documentation</p>
+                </div>
               )}
             </motion.div>
           )}
